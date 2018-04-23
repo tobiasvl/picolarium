@@ -41,63 +41,42 @@ function verify_path()
   --todo
 end
 
+function move(dir)
+  -- x delta, y delta, opposite direction
+  moves = {{-8,0,2},
+           {8,0,1},
+           nil,
+           {0,-8,8},
+           nil,
+           nil,
+           nil,
+           {0,8,4}}
+
+  new_xpos=xpos+moves[dir][1]
+  new_ypos=ypos+moves[dir][2]
+  if draw and stack[#stack]==moves[dir][3] then
+    pop(stack)
+    xpos=new_xpos
+    ypos=new_ypos
+    new=flr(mget(xpos/8,ypos/8)/16)
+    mset(xpos/8,ypos/8,new*16+1)
+  elseif fget(mget(new_xpos/8,new_ypos/8),0) then
+    if draw then
+      mset(xpos/8,ypos/8,mget(xpos/8,ypos/8)+1)
+      push(stack,dir)
+    end
+    xpos=new_xpos
+    ypos=new_ypos
+  end
+end
+
 function _update()
   if btnp(🅾️) then
     if (not draw) draw = true else verify_path()
   end
   if (btnp(❎)) turn_off_draw()
-  if btnp(⬅️) then
-    if draw and stack[#stack] == ➡️ then
-      pop(stack)
-      xpos -= 8
-      new=flr(mget(xpos/8,ypos/8)/16)
-      mset(xpos/8,ypos/8,new*16+1)
-    elseif fget(mget((xpos-8)/8,ypos/8),0) then
-      if draw then
-        mset(xpos/8,ypos/8,mget(xpos/8,ypos/8)+1)
-        push(stack,⬅️)
-      end
-      xpos -= 8
-    end
-  elseif btnp(➡️) then
-    if draw and stack[#stack] == ⬅️ then
-      pop(stack)
-      xpos += 8
-      new=flr(mget(xpos/8,ypos/8)/16)
-      mset(xpos/8,ypos/8,new*16+1)
-    elseif fget(mget((xpos+8)/8,ypos/8),0) then
-      if draw then
-        mset(xpos/8,ypos/8,mget(xpos/8,ypos/8)+1)
-        push(stack,➡️)
-      end
-      xpos += 8
-    end
-  elseif btnp(⬆️) then
-    if draw and stack[#stack] == ⬇️ then
-      pop(stack)
-      ypos -= 8
-      new=flr(mget(xpos/8,ypos/8)/16)
-      mset(xpos/8,ypos/8,new*16+1)
-    elseif fget(mget(xpos/8,(ypos-8)/8),0) then
-      if draw then
-        mset(xpos/8,ypos/8,mget(xpos/8,ypos/8)+1)
-        push(stack,⬆️)
-      end
-      ypos -= 8
-    end
-  elseif btnp(⬇️) then
-    if draw and stack[#stack] == ⬆️ then
-      pop(stack)
-      ypos += 8
-      new=flr(mget(xpos/8,ypos/8)/16)
-      mset(xpos/8,ypos/8,new*16+1)
-    elseif fget(mget(xpos/8,(ypos+8)/8),0) then
-      if draw then
-        mset(xpos/8,ypos/8,mget(xpos/8,ypos/8)+1)
-        push(stack,⬇️)
-      end
-      ypos += 8
-    end
+  if btnp(⬅️) or btnp(➡️) or btnp(⬆️) or btnp(⬇️) then
+    move(btnp())
   end
 end
 
@@ -362,4 +341,3 @@ __music__
 41 00000000
 42 00000000
 43 00414243
-
