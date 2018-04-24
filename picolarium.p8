@@ -4,18 +4,48 @@ __lua__
 -- picolarium
 -- by tobiasvl
 
-function build_level_select()
-  local ls={}
+function load()
+  ls={}
+  lvls_beat=0
+  count=0
+  d=0
+  byte=dget(d)
   for y=1,10 do
     add(ls,{})
     for x=1,10 do
-      add(ls[y],0) --make persistent
+      n=band(byte,1)
+      byte=rotl(byte,1)
+      add(ls[y],n)
+      lvls_beat+=n
+      count+=1
+      if count==32 then
+        d+=1
+        byte=dget(d)
+        count=0
+      end
     end
   end
   return ls
 end
 
-level_select=build_level_select()
+function save()
+  byte=0
+  count=0
+  d=0
+  for y=1,10 do
+    for x=1,10 do
+      byte=bor(byte, level_select[y][x])
+      byte=rotl(byte,1)
+      count+=1
+      if count==32 then
+        dset(d,byte)
+        byte=0
+        d+=1
+        count=0
+      end
+    end
+  end
+end
 
 --[[
 modes
@@ -24,8 +54,9 @@ modes
 2: title_tutorial
 3: level_select
 4: play (draw)
-5: flips
+5: flip
 6: verify
+7: fail state
 ]]
 
 function center(str,y,c)
@@ -35,6 +66,7 @@ end
 
 function _init()
   cartdata("picolarium")
+  level_select=load()
   palt(0,false)
   mode=0
   draw=false
@@ -47,7 +79,7 @@ end
 
 function play_init()
   mode=4
-  menuitem(1,"level select",function() mode=3 end)
+  menuitem(1,"level select",function() turn_off_draw() pal() mode=3 end)
   draw_level(levels[lvl])
   w=flr((2+#levels[lvl][1])/2)
   h=flr((2+#levels[lvl])/2)
@@ -126,8 +158,8 @@ end
 --end fizzlefader
 
 function turn_off_draw()
-  draw = false
-  stack = {}
+  draw=false
+  stack={}
   draw_level(levels[lvl])
 end
 
@@ -307,8 +339,9 @@ function _draw()
     draw_level(level_select)
     spr(0, lvl_xpos, lvl_ypos)
     camera()
-    center("level select",8)
+    center("select level",8)
     print(lvl, 64, 116, 7)
+    if (lvls_beat==100) printg()
   elseif mode==4 then
     cls()
     map()
@@ -330,10 +363,16 @@ function _draw()
     map()
   elseif mode==6 or mode==7 then
     if #bad_rows==0 then
-      level_select[ceil(lvl/#level_select)][lvl%#level_select]=1
+      x=ceil(lvl/#level_select)
+      y=lvl%#level_select
+      if level_select[x][y]==0 then
+        level_select[x][y]=1
+        lvls_beat+=1
+        save()
+      end
       camera()
       center("clear!",108,3)
-      if (counter==32) counter,mode=0,3
+      if (counter==24) counter,mode=0,3
     else
       if counter>=16 then
         counter=0
@@ -1258,6 +1297,24 @@ levels = {
     {0,0,1,1,1,0,1,1}
   },
 }
+
+function printg()
+  print('c',34,123,1)
+  print('o',38,123,2)
+  print('n',42,123,3)
+  print('g',46,123,4)
+  print('r',50,123,5)
+  print('a',54,123,6)
+  print('t',58,123,7)
+  print('u',62,123,8)
+  print('l',66,123,9)
+  print('a',70,123,10)
+  print('t',74,123,11)
+  print('i',78,123,12)
+  print('o',82,123,13)
+  print('n',86,123,14)
+  print('s',90,123,15)
+end
 __gfx__
 eeeeeeee7777777797777779999999999999999999999999977777799777777999999999977777799999999999999999eeeeeeee888888880000000000000000
 e000000e7666665796666659766666579666665776666659966666577666665996666659966666599666665776666659eddddd5e822222280000000000000000
