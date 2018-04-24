@@ -34,19 +34,45 @@ levels = {
   }
 }
 
+level_select={
+  {0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0},
+}
+
+--[[
+modes
+0: title
+1: title_wait
+2: title_tutorial
+3: level_select
+4: play (draw)
+5: flips
+6: verify
+]]
+
 function _init()
+  cartdata("picolarium")
   palt(0,false)
+  mode=0
   draw=false
-  flips=false
-  play=false
-  title=true
+  lvl=1
   str="tobiasvl"
   print(str,64-(#str*2),96,7)
+  lvl_xpos=0
+  lvl_ypos=0
 end
 
 function play_init()
-  play=true
-  lvl=2
+  mode=4
+  menuitem(1,"level select",function() mode=3 end)
   draw_level(levels[lvl])
   w=flr(2+#levels[lvl][1]/2)
   h=flr(2+#levels[lvl]/2)
@@ -75,8 +101,7 @@ function new_fizzlefader()
   else
     x=0
     y=0
-    title=false
-    title_wait=true
+    mode=1
     mset(3,10,32) --bug
     map()
   end
@@ -133,7 +158,6 @@ end
 
 function verify_path()
   draw=false
-  play=false
   bad_rows={}
   b_tiles={}
   w_tiles={}
@@ -169,7 +193,10 @@ function verify_path()
         end
     end
   end
-  flips=true
+  if #bad_rows==0 then
+    level_select[ceil(lvl/#level_select)][lvl%#level_select]=1
+  end
+  mode=5
 end
 
 -- x delta, y delta, opposite direction
@@ -223,42 +250,64 @@ function path_tile(dir1, dir2)
 end
 
 function _update()
-  if btnp(🅾️) and (title or title_wait or title_tutorial) then
-    title=false
-    title_wait=false
-    title_tutorial=false
-    palt()
-    for x=0,15 do
-      for y=0,15 do
-        mset(x,y,0)
+  if mode==0 or mode==1 or mode==2 then
+    if btnp(🅾️) then
+      palt()
+      for x=0,15 do
+        for y=0,15 do
+          mset(x,y,0)
+        end
+      end
+      mode=3
+    end
+  elseif mode==1 then
+    if (btnp(❎)) mode=2
+  elseif mode==3 then
+    if btnp(⬅️) then
+      if lvl%#level_select~=1 then
+        lvl-=1
+        lvl_xpos-=8
+      elseif lvl~=1 then
+        lvl-=1
+        lvl_xpos+=(#level_select-1)*8
+        lvl_ypos-=8
       end
     end
-    play_init()
-  elseif btnp(❎) and title_wait then
-    title_wait=false
-    title_tutorial=true
-  elseif btnp(🅾️) and play then
-    if not draw then
-      draw = true
-    else
-      verify_path()
+    if btnp(➡️) then
+      if lvl%#level_select[1]~=0 then
+        lvl+=1
+        lvl_xpos+=8
+      elseif lvl~=100 then
+        lvl+=1
+        lvl_xpos-=(#level_select-1)*8
+        lvl_ypos+=8
+      end
     end
-  elseif btnp(❎) and play then
-    turn_off_draw()
-  elseif btnp(⬅️) or btnp(➡️) or btnp(⬆️) or btnp(⬇️) and play then --todo handle diagonals
-    move(btnp())
+    if (btnp(⬆️) and lvl>10) lvl-=10 lvl_ypos-=8
+    if (btnp(⬇️) and lvl<=90) lvl+=10 lvl_ypos+=8
+    if (btnp(🅾️)) play_init()
+  elseif mode==4 then
+    if btnp(🅾️) then
+      if draw then
+        verify_path()
+      else
+        draw=true
+      end
+    end
+    if (btnp(❎)) turn_off_draw()
+    if (btnp(⬅️) or btnp(➡️) or btnp(⬆️) or btnp(⬇️)) move(btnp()) --todo handle diagonals
   end
 end
 
 function _draw()
-  if title then
+  if mode==0 then
     title_draw()
-  elseif title_wait then
+  elseif mode==1 then
     str="press 🅾️"
     print(str,64-(#str*2),60,0)
     str="(❎ for tutorial)"
     print(str,64-(#str*2),68,0)
-  elseif title_tutorial then
+  elseif mode==2 then
     rectfill(0,60,127,72,7)
     cursor(8,52)
     color(0)
@@ -266,26 +315,30 @@ function _draw()
     print("🅾️: start and finish a\n    single stroke")
     print("flip tiles so all horizontal\nlines are the same color")
     print("e.g. from ▒/▥ to █/▤")
-  elseif play then
+  elseif mode==3 then
+    draw_level(level_select)
+    spr(0, lvl_xpos, lvl_ypos)
+    camera()
+    print("level select",64-(12*2),8,7)
+    print(lvl, 64, 116, 7)
+  elseif mode==4 then
     cls()
     map()
     spr(0, xpos, ypos)
-  elseif flips then
+  elseif mode==5 then
     cls()
     for t in all(b_tiles) do
       s=mget(t[1],t[2])
       mset(t[1],t[2],s-1)
       if s==49 then
-        flips=false
-        verify=true
+        mode=6
       end
     end
     for t in all(w_tiles) do
       s=mget(t[1],t[2])
       mset(t[1],t[2],s+1)
       if s==55 then
-        flips=false
-        verify=true
+        mode=6
       end
     end
     map()
@@ -324,22 +377,30 @@ end
 
 function draw_level(level)
   cls()
-  width=#level[1]
-  draw_border(width+1, 0)
-  for y=1,#level do
-    mset(0,y,33)
-    for x=1,width do
-      mset(x,y,level[y][x]*16+1)
+  for x=0,32 do
+    for y=0,32 do
+      mset(x,y,0)
     end
-    mset(width+1,y,33)
   end
-  draw_border(width+1, #level+1)
-  x=-(128-((width+2)*8))/2
-  y=-(128-((#level+2)*8))/2
+  width=#level[1]
+  height=#level
+  if (mode==4) draw_border(width+1, 0)
+  for y=1,height do
+    if (mode==4) mset(0,y,33)
+    for x=1,width do
+      if mode==3 then
+        mset(x-1,y-1,level[y][x]*16+1)
+      elseif mode==4 then
+        mset(x,y,level[y][x]*16+1)
+      end
+    end
+    if (mode==4) mset(width+1,y,33)
+  end
+  if (mode==4) draw_border(width+1, height+1) width+=2 height+=2
+  x=-(128-(width*8))/2
+  y=-(128-(height*8))/2
   camera(x,y)
   map()
-  printh(x)
-  print(y)
 end
 
 push=add
