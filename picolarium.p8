@@ -17,6 +17,20 @@ levels = {
     {0,1,1,1,0},
     {0,1,0,1,0},
     {0,1,1,1,0}
+  },
+  {
+    {0,0,1,1,0,0,0,0,0,0,1,1,0,0},
+    {0,1,1,1,1,0,0,0,0,1,1,1,1,0},
+    {0,1,1,1,1,1,1,1,1,1,1,1,1,0},
+    {0,1,0,1,1,1,0,0,1,1,1,0,1,0},
+    {1,0,1,1,1,1,1,1,1,1,1,1,0,1},
+    {0,1,1,1,0,0,0,0,0,0,1,1,1,0},
+    {0,1,1,0,0,1,0,0,1,0,0,1,1,0},
+    {0,1,0,0,0,1,0,0,1,0,0,0,1,0},
+    {0,1,0,0,0,0,0,0,0,0,0,0,1,0},
+    {0,1,0,0,1,0,1,1,0,1,0,0,1,0},
+    {0,0,1,0,0,1,1,1,1,0,0,1,0,0},
+    {0,0,0,1,0,0,0,0,0,0,1,0,0,0}
   }
 }
 
@@ -26,10 +40,13 @@ function _init()
   flips=false
   play=false
   title=true
+  str="tobiasvl"
+  print(str,64-(#str*2),96,7)
 end
 
 function play_init()
-  lvl=1
+  play=true
+  lvl=2
   draw_level(levels[lvl])
   w=flr(2+#levels[lvl][1]/2)
   h=flr(2+#levels[lvl]/2)
@@ -59,11 +76,14 @@ function new_fizzlefader()
     x=0
     y=0
     title=false
+    title_wait=true
+    mset(3,10,32) --bug
+    map()
   end
 
   -- feistel transform
   function f(n)
-   n = bxor((n*2)+shr(n,3)+7*12,n)
+   n = bxor((n*2)+shr(n,1)+7*12,n)
    n = band(n,0xf)
    return n
   end
@@ -85,7 +105,12 @@ function new_fizzlefader()
   -- (l and r) directly
  end
  f.draw = function()
-  mset(x2,y2,mget(x2,y2)+32)
+   if y2<13 then --black border at bottom
+     p=mget(x2,y2)
+     if p==0 or (p>=64 and p<=95) then --bug fix
+       mset(x2,y2,mget(x2,y2)+32)
+     end
+   end
  end
  return f
 end
@@ -112,9 +137,11 @@ function verify_path()
   bad_rows={}
   b_tiles={}
   w_tiles={}
-  for y=1,(#levels[lvl])+2 do
+  mset(xpos/8,ypos/8,mget(xpos/8,ypos/8)+path_tile(nil,1)) --make last border
+  --mset(xpos/8,ypos/8,mget(xpos/8,ypos/8)+path_tile(nil,moves[stack[#stack]][3])) --make last border
+  for y=0,(#levels[lvl])+1 do
     row_color=0
-    for x=1,(#levels[lvl][1])+2 do
+    for x=0,(#levels[lvl][1])+1 do
         if fget(mget(x,y),2) then--white
           if fget(mget(x,y),1) then--is a path
             mset(x,y,48)--black
@@ -196,11 +223,24 @@ function path_tile(dir1, dir2)
 end
 
 function _update()
-  if btnp(🅾️) and play then
+  if btnp(🅾️) and (title or title_wait or title_tutorial) then
+    title=false
+    title_wait=false
+    title_tutorial=false
+    palt()
+    for x=0,15 do
+      for y=0,15 do
+        mset(x,y,0)
+      end
+    end
+    play_init()
+  elseif btnp(❎) and title_wait then
+    title_wait=false
+    title_tutorial=true
+  elseif btnp(🅾️) and play then
     if not draw then
       draw = true
     else
-      mset(xpos/8,ypos/8,mget(xpos/8,ypos/8)+path_tile(nil,moves[stack[#stack]][3]))
       verify_path()
     end
   elseif btnp(❎) and play then
@@ -213,27 +253,43 @@ end
 function _draw()
   if title then
     title_draw()
+  elseif title_wait then
+    str="press 🅾️"
+    print(str,64-(#str*2),60,0)
+    str="(❎ for tutorial)"
+    print(str,64-(#str*2),68,0)
+  elseif title_tutorial then
+    rectfill(0,60,127,72,7)
+    cursor(8,52)
+    color(0)
+    print("⬅️➡️⬆️⬇️: move")
+    print("🅾️: start and finish a\n    single stroke")
+    print("flip tiles so all horizontal\nlines are the same color")
+    print("e.g. from ▒/▥ to █/▤")
   elseif play then
     cls()
-    if flips then
-      for t in all(b_tiles) do
-        s=mget(t[1],t[2])
-        mset(t[1],t[2],s-1)
-        if s==49 then
-          flips=false
-          verify=true
-        end
-      end
-      for t in all(w_tiles) do
-        s=mget(t[1],t[2])
-        mset(t[1],t[2],s+1)
-        if s==55 then
-          flips=false
-          verify=true
-        end
+    map()
+    spr(0, xpos, ypos)
+  elseif flips then
+    cls()
+    for t in all(b_tiles) do
+      s=mget(t[1],t[2])
+      mset(t[1],t[2],s-1)
+      if s==49 then
+        flips=false
+        verify=true
       end
     end
---[[  if verify then
+    for t in all(w_tiles) do
+      s=mget(t[1],t[2])
+      mset(t[1],t[2],s+1)
+      if s==55 then
+        flips=false
+        verify=true
+      end
+    end
+    map()
+  --[[elseif verify then
     if #bad_rows~=0 then
       for y in all(bad_rows) do
         for x=2,(#levels[lvl][1])+1 do
@@ -244,40 +300,46 @@ function _draw()
             mset(x,y,28)
           elseif s==28 then
             mset(x,y,29)
-            verify=false
+          elseif s==29 then
+            mset(x,y,28)
           elseif s==12 then
             mset(x,y,13)
-            verify=false
+          elseif s==13 then
+            mset(x,y,12)
           end
         end
       end
-    end
-  end]]
-    map()
-    if (play) spr(0, xpos, ypos)
+      map()
+    end]]
     --print(draw)
     --print(stack[#stack])
   end
 end
 
 function draw_border(len,y)
-  for x=1,len do
+  for x=0,len do
     mset(x,y,33)
   end
 end
 
 function draw_level(level)
+  cls()
   width=#level[1]
-  draw_border(width+2, 1)
+  draw_border(width+1, 0)
   for y=1,#level do
-    mset(1,y+1,33)
+    mset(0,y,33)
     for x=1,width do
-      mset(x+1,y+1,level[y][x]*16+1)
+      mset(x,y,level[y][x]*16+1)
     end
-    mset(width+2,y+1,33)
+    mset(width+1,y,33)
   end
-  draw_border(width+2, #level+2)
+  draw_border(width+1, #level+1)
+  x=-(128-((width+2)*8))/2
+  y=-(128-((#level+2)*8))/2
+  camera(x,y)
   map()
+  printh(x)
+  print(y)
 end
 
 push=add
