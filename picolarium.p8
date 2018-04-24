@@ -4,18 +4,18 @@ __lua__
 -- picolarium
 -- by tobiasvl
 
-level_select={
-  {0,0,0,0,0,0,0,0,0,0},
-  {0,0,0,0,0,0,0,0,0,0},
-  {0,0,0,0,0,0,0,0,0,0},
-  {0,0,0,0,0,0,0,0,0,0},
-  {0,0,0,0,0,0,0,0,0,0},
-  {0,0,0,0,0,0,0,0,0,0},
-  {0,0,0,0,0,0,0,0,0,0},
-  {0,0,0,0,0,0,0,0,0,0},
-  {0,0,0,0,0,0,0,0,0,0},
-  {0,0,0,0,0,0,0,0,0,0},
-}
+function build_level_select()
+  local ls={}
+  for y=1,10 do
+    add(ls,{})
+    for x=1,10 do
+      add(ls[y],0) --make persistent
+    end
+  end
+  return ls
+end
+
+level_select=build_level_select()
 
 --[[
 modes
@@ -28,24 +28,26 @@ modes
 6: verify
 ]]
 
+function center(str,y)
+  print(str,64-(#str*2),y,7)
+end
+
 function _init()
   cartdata("picolarium")
   palt(0,false)
   mode=0
   draw=false
   lvl=1
-  str="tobiasvl"
-  print(str,64-(#str*2),96,7)
-  lvl_xpos=0
-  lvl_ypos=0
+  center("tobiasvl",96)
+  lvl_xpos,lvl_ypos=0,0
 end
 
 function play_init()
   mode=4
   menuitem(1,"level select",function() mode=3 end)
   draw_level(levels[lvl])
-  w=flr(2+#levels[lvl][1]/2)
-  h=flr(2+#levels[lvl]/2)
+  w=flr((2+#levels[lvl][1])/2)
+  h=flr((2+#levels[lvl])/2)
   xpos = w*8
   ypos = h*8
   stack = {}
@@ -273,10 +275,8 @@ function _draw()
   if mode==0 then
     title_draw()
   elseif mode==1 then
-    str="press 🅾️"
-    print(str,64-(#str*2),60,0)
-    str="(❎ for tutorial)"
-    print(str,64-(#str*2),68,0)
+    center("press 🅾️",60)
+    center("(❎ for tutorial)",68)
   elseif mode==2 then
     rectfill(0,60,127,72,7)
     cursor(8,52)
@@ -289,7 +289,7 @@ function _draw()
     draw_level(level_select)
     spr(0, lvl_xpos, lvl_ypos)
     camera()
-    print("level select",64-(12*2),8,7)
+    center("level select",8)
     print(lvl, 64, 116, 7)
   elseif mode==4 then
     cls()
