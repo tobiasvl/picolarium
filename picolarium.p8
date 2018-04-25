@@ -369,6 +369,7 @@ function _draw()
     if #bad_rows==0 then
       x=ceil(lvl/#level_select)
       y=lvl%#level_select
+      if (y==0) y=10
       if level_select[x][y]==0 then
         level_select[x][y]=1
         lvls_beat+=1
@@ -1610,4 +1611,3 @@ __music__
 41 00000000
 42 00000000
 43 00414243
-
