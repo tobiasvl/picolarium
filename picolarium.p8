@@ -352,12 +352,11 @@ function _draw()
     spr(0, xpos, ypos)
   elseif mode==5 then
     cls()
+    if (#b_tiles==0 and #w_tiles==0) mode=6
     for t in all(b_tiles) do
       s=mget(t[1],t[2])
       mset(t[1],t[2],s-1)
-      if s==49 then
-        mode=6
-      end
+      if (s==49) mode=6
     end
     for t in all(w_tiles) do
       s=mget(t[1],t[2])
