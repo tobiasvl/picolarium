@@ -159,6 +159,7 @@ end
 
 function turn_off_draw()
   draw=false
+  pal()
   stack={}
   draw_level(levels[lvl])
 end
@@ -303,16 +304,19 @@ function _update()
     if (btnp(⬇️) and lvl<=90) lvl+=10 lvl_ypos+=8
     if (btnp(🅾️)) play_init()
   elseif mode==4 then
-    if btnp(🅾️) then
+    button=btnp()
+    if button==16 then
       if draw then
         verify_path()
       else
         draw=true
         pal(14,10)
       end
+    elseif button==32 then
+      turn_off_draw()
+    elseif button==1 or button==2 or button==4 or button==8 then
+      move(button)
     end
-    if (btnp(❎)) turn_off_draw()
-    if (btnp(⬅️) or btnp(➡️) or btnp(⬆️) or btnp(⬇️)) move(btnp()) --todo handle diagonals
   elseif mode==7 then
     if (btnp(🅾️)) mode=4 turn_off_draw()
     if (btnp(❎)) mode=3
