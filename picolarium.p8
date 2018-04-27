@@ -64,6 +64,22 @@ function center(str,y,c)
   print(str,64-(#str*2),y,c)
 end
 
+function print_lvl_no()
+  local x=62
+  if (lvl>9) x-=2
+  if (lvl>99) x-=2
+  poke4(0x4300,peek4(0x5f28))
+  camera()
+  print(lvl,x,116,7)
+  x=ceil(lvl/#level_select)
+  y=lvl%#level_select
+  if (y==0) y=10
+  if level_select[x][y]==1 then
+    center("(solved)",122,5)
+  end
+  poke4(0x5f28,peek4(0x4300))
+end
+
 function _init()
   cartdata("picolarium")
   level_select=load()
@@ -336,19 +352,20 @@ function _draw()
     cursor(8,52)
     color(0)
     print("⬅️➡️⬆️⬇️: move")
-    print("🅾️: start and finish a\n    single stroke")
+    print("🅾️: start and finish a\n    single stroke\n")
     print("flip tiles so each horizontal\nline is one color")
-    print("e.g. from ▒ or ▥ to █ or ▤")
+    print("e.g. from ▒/▥ to █/▤")
   elseif mode==3 then
     draw_level(level_select)
     spr(0, lvl_xpos, lvl_ypos)
     camera()
     center("select level",8)
-    print(lvl, 64, 116, 7)
+    print_lvl_no()
     if (lvls_beat==100) printg()
   elseif mode==4 then
     cls()
     map()
+    print_lvl_no()
     spr(0, xpos, ypos)
   elseif mode==5 then
     cls()
@@ -375,7 +392,7 @@ function _draw()
         save()
       end
       camera()
-      center("clear!",108,3)
+      center("clear!",16,3)
       if (counter==24) counter,mode=0,3
     else
       if counter>=16 then
