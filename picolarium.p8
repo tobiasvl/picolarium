@@ -81,21 +81,21 @@ function print_lvl_no()
 end
 
 function find_unsolved()
-  local new_lvl=lvl+1
+  new_lvl=lvl+1
   local x=new_lvl%#level_select
   if (x==0) x=10
   for y=ceil(new_lvl/#level_select),10 do
     for x2=x,10 do
       if level_select[y][x2]==0 then
-        lvl=new_lvl
-        lvl_xpos=(x2-1)*8
-        lvl_ypos=(y-1)*8
-        return
+        new_lvl_xpos=(x2-1)*8
+        new_lvl_ypos=(y-1)*8
+        return true
       end
       new_lvl+=1
     end
     x=1
   end
+  return false
 end
 
 function _init()
@@ -109,6 +109,9 @@ function _init()
   center("tobiasvl",96)
   lvl_xpos,lvl_ypos=0,0
   counter=0
+  new_lvl=1
+  new_lvl_xpos=0
+  new_lvl_ypos=0
 end
 
 function play_init()
@@ -354,10 +357,14 @@ function _update()
   elseif mode==7 then
     counter+=1
     if (btnp(🅾️)) mode=4 turn_off_draw()
+  elseif mode==7 or mode==8 or mode==9 then
     if (btnp(❎)) mode=3
-  elseif mode==8 then
-    if (btnp(🅾️)) find_unsolved() play_init()-- turn_off_draw()
-    if (btnp(❎)) mode=3
+  end
+  if mode==9 then
+    if btnp(🅾️) then
+      lvl,lvl_xpos,lvl_ypos=new_lvl,new_lvl_xpos,new_lvl_ypos
+      play_init()
+    end
   end
 end
 
@@ -414,9 +421,14 @@ function _draw()
       end
       camera()
       center("clear!",16,3)
-      print("🅾️ next unsolved level",20,108,7)
-      print("❎ back",20,116,7)
-      mode=8
+      if lvls_beat<100 and find_unsolved() then
+        print("🅾️ next unsolved level",20,108,7)
+        print("❎ back",20,116,7)
+        mode=9
+      else
+        center("❎ back",108,7)
+        mode=8
+      end
     else
       if counter>=16 then
         counter=0
