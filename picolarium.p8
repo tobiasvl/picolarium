@@ -80,6 +80,24 @@ function print_lvl_no()
   poke4(0x5f28,peek4(0x4300))
 end
 
+function find_unsolved()
+  local new_lvl=lvl+1
+  local x=new_lvl%#level_select
+  if (x==0) x=10
+  for y=ceil(new_lvl/#level_select),10 do
+    for x2=x,10 do
+      if level_select[y][x2]==0 then
+        lvl=new_lvl
+        lvl_xpos=(x2-1)*8
+        lvl_ypos=(y-1)*8
+        return
+      end
+      new_lvl+=1
+    end
+    x=1
+  end
+end
+
 function _init()
   cartdata("picolarium")
   level_select=load()
@@ -334,10 +352,13 @@ function _update()
       move(button)
     end
   elseif mode==7 then
+    counter+=1
     if (btnp(🅾️)) mode=4 turn_off_draw()
     if (btnp(❎)) mode=3
+  elseif mode==8 then
+    if (btnp(🅾️)) find_unsolved() play_init()-- turn_off_draw()
+    if (btnp(❎)) mode=3
   end
-  if (mode==6 or mode==7) counter+=1
 end
 
 function _draw()
@@ -383,17 +404,19 @@ function _draw()
     map()
   elseif mode==6 or mode==7 then
     if #bad_rows==0 then
-      x=ceil(lvl/#level_select)
-      y=lvl%#level_select
-      if (y==0) y=10
-      if level_select[x][y]==0 then
-        level_select[x][y]=1
+      y=ceil(lvl/#level_select)
+      x=lvl%#level_select
+      if (x==0) x=10
+      if level_select[y][x]==0 then
+        level_select[y][x]=1
         lvls_beat+=1
         save()
       end
       camera()
       center("clear!",16,3)
-      if (counter==24) counter,mode=0,3
+      print("🅾️ next unsolved level",20,108,7)
+      print("❎ back",20,116,7)
+      mode=8
     else
       if counter>=16 then
         counter=0
@@ -1627,4 +1650,3 @@ __music__
 41 00000000
 42 00000000
 43 00414243
-
