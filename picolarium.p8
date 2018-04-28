@@ -357,7 +357,8 @@ function _update()
   elseif mode==7 then
     counter+=1
     if (btnp(🅾️)) mode=4 turn_off_draw()
-  elseif mode==7 or mode==8 or mode==9 then
+  end
+  if mode==7 or mode==8 or mode==9 then
     if (btnp(❎)) mode=3
   end
   if mode==9 then
