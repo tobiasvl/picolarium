@@ -4,7 +4,7 @@ __lua__
 -- picolarium
 -- by tobiasvl
 
-function load()
+function load_state()
   ls={}
   lvls_beat=0
   count=0
@@ -28,7 +28,7 @@ function load()
   return ls
 end
 
-function save()
+function save_state()
   byte=0
   count=0
   d=0
@@ -53,10 +53,11 @@ modes
 1: title_wait
 2: title_tutorial
 3: level_select
-4: play (draw)
+4: play
 5: flip
 6: verify
 7: fail state
+8 and 9: win states
 ]]
 
 function center(str,y,c)
@@ -100,7 +101,7 @@ end
 
 function _init()
   cartdata("picolarium")
-  level_select=load()
+  level_select=load_state()
   palt(0,false)
   mode=0
   draw=false
@@ -418,7 +419,7 @@ function _draw()
       if level_select[y][x]==0 then
         level_select[y][x]=1
         lvls_beat+=1
-        save()
+        save_state()
       end
       camera()
       center("clear!",16,3)
