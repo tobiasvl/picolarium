@@ -126,10 +126,10 @@ function play_init()
   stack = {}
 end
 
--- fizzlefade
---
--- algorithm from
--- antirez.com/news/113
+-- fizzlefade algorithm by DrPete:
+-- https://www.lexaloffle.com/bbs/?tid=29862
+-- Used and licensed under CC-BY-SA https://creativecommons.org/licenses/by-nc-sa/4.0/
+-- Modified to be tile-based instead of pixel-based
 function new_fizzlefader()
  local x = 0
  local y = 0
@@ -137,7 +137,6 @@ function new_fizzlefader()
  local y2 = 0
  local f = {}
  f.step = function()
-  -- next pixel
   if x < 15 then
    x += 1
   elseif y < 15 then
@@ -151,16 +150,12 @@ function new_fizzlefader()
     map()
   end
 
-  -- feistel transform
   function f(n)
    n = bxor((n*2)+shr(n,1)+7*12,n)
    n = band(n,0xf)
    return n
   end
 
-  -- permute with feistel net
-  -- use x2 as "left", y2 as
-  -- "right"
   x2=x
   y2=y
   for round=1,8 do
@@ -168,11 +163,6 @@ function new_fizzlefader()
    y2=bxor(x2,f(y2))
    x2=next_x2
   end
-  -- no need for a final
-  -- recomposition step
-  -- in our case:
-  -- we just use x2 and y2
-  -- (l and r) directly
  end
  f.draw = function()
    if y2<13 then --black border at bottom
