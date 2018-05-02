@@ -1,8 +1,13 @@
 Picolarium
-----------
+==========
 
 Picolarium is a [PICO-8](https://www.lexaloffle.com/pico-8.php) clone of the game _Polarium_ for DS.
 
-You can play and discuss the game in this [BBS post](https://www.lexaloffle.com/bbs/?tid=31179), or download the cartridge from the [Releases](https://github.com/tobiasvl/picolarium/releases) page.
+Draw a single stroke, flip tiles from black to white or vice versa, and turn each single line into a solid color each.
 
-The game is pretty much feature complete (except music and sound effects), but it's still a work in progress since the code is pretty bad and unoptimized.
+Links
+-----
+
+* [GitHub Pages](https://tobiasvl.github.io/picolarium/)
+* [itch.io](https://tobiasvl.itch.io/picolarium/)
+* [PICO-8 BBS](https://www.lexaloffle.com/bbs/?tid=31179)
