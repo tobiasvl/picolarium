@@ -58,6 +58,8 @@ modes
 6: verify
 7: fail state
 8 and 9: win states
+10: resize
+11: edit custom
 ]]
 
 function center(str,y,c)
@@ -105,7 +107,9 @@ function _init()
   palt(0,false)
   mode=0
   draw=false
+  custom=false
   lvl=1
+  level=levels[lvl]
   center("by",88)
   center("tobiasvl",96)
   lvl_xpos,lvl_ypos=0,0
@@ -115,21 +119,20 @@ function _init()
   new_lvl_ypos=0
 end
 
-function play_init()
-  mode=4
+function play_init(level)
   menuitem(1,"level select",function() turn_off_draw() pal() mode=3 end)
-  draw_level(levels[lvl])
-  w=flr((2+#levels[lvl][1])/2)
-  h=flr((2+#levels[lvl])/2)
+  draw_level(level)
+  w=flr((2+#level[1])/2)
+  h=flr((2+#level)/2)
   xpos = w*8
   ypos = h*8
   stack = {}
 end
 
--- fizzlefade algorithm by DrPete:
+-- fizzlefade algorithm by drpete:
 -- https://www.lexaloffle.com/bbs/?tid=29862
--- Used and licensed under CC-BY-SA https://creativecommons.org/licenses/by-nc-sa/4.0/
--- Modified to be tile-based instead of pixel-based
+-- used and licensed under cc-by-sa https://creativecommons.org/licenses/by-nc-sa/4.0/
+-- modified to be tile-based instead of pixel-based
 function new_fizzlefader()
  local x = 0
  local y = 0
@@ -189,7 +192,7 @@ function turn_off_draw()
   draw=false
   pal()
   stack={}
-  draw_level(levels[lvl])
+  draw_level(level)
 end
 
 function verify_path()
@@ -199,9 +202,9 @@ function verify_path()
   b_tiles={}
   w_tiles={}
   mset(xpos/8,ypos/8,mget(xpos/8,ypos/8)+path_tile(nil,1)) --make last border
-  for y=0,(#levels[lvl])+1 do
+  for y=0,(#level)+1 do
     row_color=0
-    for x=0,(#levels[lvl][1])+1 do
+    for x=0,(#level[1])+1 do
         if fget(mget(x,y),2) then--white
           if fget(mget(x,y),1) then--is a path
             mset(x,y,48)--black
@@ -229,7 +232,7 @@ function verify_path()
         end
     end
   end
-  mode=5
+  mode+=1
 end
 
 -- x delta, y delta, opposite direction
@@ -284,6 +287,11 @@ end
 
 function _update()
   if (mode==1 and btnp(❎)) mode=2
+  if mode==2 and btn(❎) then
+    mode=10
+    empty_level={{0,1},{0,1}}
+    level=empty_level
+  end
   if mode==0 then
     if btnp(🅾️) or btnp(❎) then
       palt()
@@ -330,7 +338,7 @@ function _update()
     end
     if (btnp(⬆️) and lvl>10) lvl-=10 lvl_ypos-=8
     if (btnp(⬇️) and lvl<=90) lvl+=10 lvl_ypos+=8
-    if (btnp(🅾️)) play_init()
+    if (btnp(🅾️)) mode=4 level=levels[lvl] play_init(level)
   elseif mode==4 then
     button=btnp()
     if button==16 then
@@ -348,14 +356,53 @@ function _update()
   elseif mode==7 then
     counter+=1
     if (btnp(🅾️)) mode=4 turn_off_draw()
+  elseif mode==10 then
+    local x,y=#empty_level[1],#empty_level
+    if (btnp(⬆️) and y>2) empty_level[y]=nil
+    if (btnp(⬇️) and y<8) then
+      local new_row={0}
+      for i=2,x do
+        add(new_row,1)
+      end
+      add(empty_level,new_row)
+    end
+    if (btnp(➡️) and x<8) foreach(empty_level,function(x) add(x,1) end)
+    if (btnp(⬅️) and x>2) foreach(empty_level,function(x) del(x,1) end)
+    if (btnp(🅾️)) mode=11 play_init(empty_level)
+  elseif mode==11 then
+    button=btnp()
+    local x,y=xpos/8,ypos/8
+    if button==16 and mget(x,y)~=33 then
+      local t=empty_level[y][x]
+      local flip={[0]=1,[1]=0}
+      empty_level[y][x]=flip[t]
+      local invalid=true
+      for tile in all(empty_level[y]) do
+        if (tile==t) invalid=false break
+      end
+      if (invalid) empty_level[y][x]=t
+    elseif button==32 then
+      mode=4
+      custom=true
+    elseif button==1 or button==2 or button==4 or button==8 then
+      move(button)
+    end
   end
   if mode==7 or mode==8 or mode==9 then
-    if (btnp(❎)) mode=3
+    if btnp(❎) then
+      if (custom) mode=11 else mode=3
+    end
   end
   if mode==9 then
     if btnp(🅾️) then
-      lvl,lvl_xpos,lvl_ypos=new_lvl,new_lvl_xpos,new_lvl_ypos
-      play_init()
+      if custom then
+        save_custom_level()
+      else
+        lvl,lvl_xpos,lvl_ypos=new_lvl,new_lvl_xpos,new_lvl_ypos
+        level=levels[lvl]
+        mode=4
+        play_init(level)
+      end
     end
   end
 end
@@ -385,7 +432,7 @@ function _draw()
   elseif mode==4 then
     cls()
     map()
-    print_lvl_no()
+    if (not custom) print_lvl_no()
     spr(0, xpos, ypos)
   elseif mode==5 then
     cls()
@@ -413,19 +460,25 @@ function _draw()
       end
       camera()
       center("clear!",16,3)
-      if lvls_beat<100 and find_unsolved() then
-        print("🅾️ next unsolved level",20,108,7)
-        print("❎ back",20,116,7)
+      if custom then
+        print("🅾️ save as custom level "..lvl,20,108,7)
+        print("❎ edit",20,116,7)
         mode=9
       else
-        center("❎ back",108,7)
-        mode=8
+        if lvls_beat<100 and find_unsolved() then
+          print("🅾️ next unsolved level",20,108,7)
+          print("❎ back",20,116,7)
+          mode=9
+        else
+          center("❎ back",108,7)
+          mode=8
+        end
       end
     else
       if counter>=16 then
         counter=0
         for y in all(bad_rows) do
-          for x=1,(#levels[lvl][1]) do
+          for x=1,(#level[1]) do
             s=mget(x,y)
             if s==1 or s==48 then
               s=12
@@ -446,10 +499,34 @@ function _draw()
       camera()
       center("failed",16,8)
       print("🅾️ try again",40,108,7)
-      print("❎ back",40,116,7)
+      if (custom) back="edit" else back="back"
+      print("❎ "..back,40,116,7)
       poke4(0x5f28,peek4(0x4300))
       mode=7
     end
+  elseif mode==10 then
+    local x,y=#level[1],#level
+    cls()
+    draw_level(level)
+    map()
+    camera()
+    center("resize level",8)
+    center("press z to edit",16,5)
+    center(x.." x "..y,108)
+    --center("press z to edit",122,5)
+  elseif mode==11 then
+    cls()
+    draw_level(level)
+    palt()
+    spr(0, xpos, ypos)
+    poke4(0x4300,peek4(0x5f28))
+    camera()
+    center("edit level",8)
+    center("press x to solve",16,5)
+    center("press z to flip tile",108)
+    center("a single row cannot",116,5)
+    center("be a solid color",122,5)
+    poke4(0x5f28,peek4(0x4300))
   end
 end
 
@@ -468,19 +545,19 @@ function draw_level(level)
   end
   width=#level[1]
   height=#level
-  if (mode==4) draw_border(width+1, 0)
+  if (mode~=3) draw_border(width+1, 0)
   for y=1,height do
-    if (mode==4) mset(0,y,33)
+    if (mode~=3) mset(0,y,33)
     for x=1,width do
       if mode==3 then
         mset(x-1,y-1,level[y][x]*16+1)
-      elseif mode==4 then
+      else
         mset(x,y,level[y][x]*16+1)
       end
     end
-    if (mode==4) mset(width+1,y,33)
+    if (mode~=3) mset(width+1,y,33)
   end
-  if (mode==4) draw_border(width+1, height+1) width+=2 height+=2
+  if (mode~=3) draw_border(width+1, height+1) width+=2 height+=2
   x=-(128-(width*8))/2
   y=-(128-(height*8))/2
   camera(x,y)
