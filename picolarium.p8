@@ -384,6 +384,8 @@ function _update()
     elseif button==32 then
       mode=4
       custom=true
+      turn_off_draw()
+      draw_level(level)
     elseif button==1 or button==2 or button==4 or button==8 then
       move(button)
     end
