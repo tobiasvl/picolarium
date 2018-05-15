@@ -199,7 +199,7 @@ end
 
 function verify_path()
   draw=false
-  end_pos.x,end_pos.y=xpos,ypos
+  end_pos.x,end_pos.y=xpos/8,ypos/8
   pal()
   bad_rows={}
   b_tiles={}
@@ -348,7 +348,7 @@ function _update()
       if draw then
         verify_path()
       else
-        start_pos.x,start_pos.y=xpos,ypos
+        start_pos.x,start_pos.y=xpos/8,ypos/8
         draw=true
         pal(14,10)
       end
@@ -571,73 +571,61 @@ function draw_level(level)
 end
 
 function save_custom_level()
-  local packed_bytes={}
-  local w,h=#level[1],#level
-  local pad_y,pad_x=8-#level,8-#level[1]
+  local byte,quad,checksum,packed_bytes,w,h,pad_y,pad_x=0,0,0,{},#level[1],#level,8-#level,8-#level[1]
   for y=1,pad_y do
-    add(level,{0,0,0}) --fixme
+    add(level,{0,0,0,0,0,0,0,0}) --fixme
   end
-  assert(#level==8)
-  local byte,quad,checksum=0,0,0
   for y=1,#level do
-    for i=1,pad_x do
+    for i=1,pad_x do --fixme
       add(level[y],0)
     end
-    --assert(#level[y]==8)
-    for x=1,#level[y] do
-      byte=rotl(byte,1)
-      byte=bor(byte,level[y][x])
+    for x=1,8 do
+      byte=bor(rotr(byte,1),level[y][x])
     end
+    byte=rotl(byte,7)
     checksum+=byte
-    --if (y==1) print(checksum)
-    quad=rotl(quad,8)
-    quad=bor(quad,byte)
+    quad=bor(rotr(quad,8),byte)
     byte=0
-    if (y%4==0) add(packed_bytes,quad) quad=0
+    if (y%4==0) add(packed_bytes,rotl(quad,8)) quad=0
   end
-  assert(#packed_bytes==2)
-  quad=start_pos.y
-  quad=rotl(quad,4)
-  quad=bor(quad,start_pos.x)
+  quad=bor(rotl(start_pos.y,4),start_pos.x)
   checksum+=quad
 
-  quad=rotl(quad,4)
+  quad=rotr(quad,12)
   quad=bor(quad,end_pos.y)
-  quad=rotl(quad,4)
-  quad=bor(quad,end_pos.x)
+  quad=bor(rotl(quad,4),end_pos.x)
   checksum+=band(0xff,quad)
 
-  quad=rotl(quad,4)
+  quad=rotr(quad,12)
   quad=bor(quad,h)
-  quad=rotl(quad,4)
-  quad=bor(quad,w)
+  quad=bor(rotl(quad,4),w)
   checksum+=band(0xff,quad)
 
-  quad=rotl(quad,8)
-  quad=bor(quad,checksum%256)
-  add(packed_bytes,rotr(quad,16))
+  add(packed_bytes,rotl(bor(rotr(quad,8),band(checksum,0xff)),8))
   print('\n')
   for v in all(packed_bytes) do
     print(v..': '..u32dec_pad_rev(v))
   end
 end
 
+_offset_80000000={8,4,6,3,8,4,7,4,1,2}
+_offset_00000000={0,0,0,0,0,0,0,0,0,0}
 function u32dec_pad_rev(v)
-    local s,c,i,d="",0,0
-    if v<0 then
-        v-=0x8000
-        d={8,4,6,3,8,4,7,4,1,2} -- 2147483648 backwards
-    else
-        d={0,0,0,0,0,0,0,0,0,0}
-    end
-    repeat
-        i+=1
-        c+=d[i]+v%0x.000a/0x.0001
-        s=s..(c%10)
-        c=flr(c/10)
-        v/=10
-    until v==0
-    return s
+  local s,c,i,d="",0,0
+  if v<0 then
+    v-=0x8000
+    d=_offset_80000000
+  else
+    d=_offset_00000000
+  end
+  repeat
+    i+=1
+    c+=d[i]+v%0x.000a/0x.0001
+    s=s..(c%10)
+    c=flr(c/10)
+    v/=10
+  until i==10-- or not pad and v==0 and d~=_offset_80000000
+  return s
 end
 
 push=add
