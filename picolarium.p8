@@ -608,23 +608,16 @@ function save_custom_level()
   end
 end
 
-_offset_80000000={8,4,6,3,8,4,7,4,1,2}
-_offset_00000000={0,0,0,0,0,0,0,0,0,0}
+-- interpret level bytes as 32-bit unsigned integers
+-- thanks to felice and mrjorts from the bbs
 function u32dec_pad_rev(v)
-  local s,c,i,d="",0,0
-  if v<0 then
-    v-=0x8000
-    d=_offset_80000000
-  else
-    d=_offset_00000000
-  end
-  repeat
-    i+=1
-    c+=d[i]+v%0x.000a/0x.0001
+  local s,c="",(v>=0 or v==0x8000) and 0 or v%0x.000a<0x.0004 and 6 or -4
+  for i=0,10 do
+    c+=v%0x.000a/0x.0001
     s=s..(c%10)
     c=flr(c/10)
-    v/=10
-  until i==10-- or not pad and v==0 and d~=_offset_80000000
+    v=lshr(v,1)/5
+  end
   return s
 end
 
