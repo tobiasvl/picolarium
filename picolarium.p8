@@ -5,15 +5,15 @@ __lua__
 -- by tobiasvl
 
 function load_state()
-  ls={}
+  local ls={}
   lvls_beat=0
-  count=0
-  d=0
-  byte=dget(d)
+  local count=0
+  local d=0
+  local byte=dget(d)
   for y=1,10 do
     add(ls,{})
     for x=1,10 do
-      n=band(byte,1)
+      local n=band(byte,1)
       byte=rotl(byte,1)
       add(ls[y],n)
       lvls_beat+=n
@@ -29,9 +29,9 @@ function load_state()
 end
 
 function save_state()
-  byte=0
-  count=0
-  d=0
+  local byte=0
+  local count=0
+  local d=0
   for y=1,10 do
     for x=1,10 do
       byte=bor(byte, level_select[y][x])
@@ -113,6 +113,7 @@ function _init()
   center("by",88)
   center("tobiasvl",96)
   lvl_xpos,lvl_ypos=0,0
+  start_pos,end_pos={x=0,y=0},{x=0,y=0}
   counter=0
   new_lvl=1
   new_lvl_xpos=0
@@ -192,11 +193,13 @@ function turn_off_draw()
   draw=false
   pal()
   stack={}
+  start_pos,end_pos={x=0,y=0},{x=0,y=0}
   draw_level(level)
 end
 
 function verify_path()
   draw=false
+  end_pos.x,end_pos.y=xpos,ypos
   pal()
   bad_rows={}
   b_tiles={}
@@ -345,6 +348,7 @@ function _update()
       if draw then
         verify_path()
       else
+        start_pos.x,start_pos.y=xpos,ypos
         draw=true
         pal(14,10)
       end
@@ -385,7 +389,7 @@ function _update()
       mode=4
       custom=true
       turn_off_draw()
-      draw_level(level)
+      draw_level(level) --fixme empty_level?
     elseif button==1 or button==2 or button==4 or button==8 then
       move(button)
     end
@@ -564,6 +568,76 @@ function draw_level(level)
   y=-(128-(height*8))/2
   camera(x,y)
   map()
+end
+
+function save_custom_level()
+  local packed_bytes={}
+  local w,h=#level[1],#level
+  local pad_y,pad_x=8-#level,8-#level[1]
+  for y=1,pad_y do
+    add(level,{0,0,0}) --fixme
+  end
+  assert(#level==8)
+  local byte,quad,checksum=0,0,0
+  for y=1,#level do
+    for i=1,pad_x do
+      add(level[y],0)
+    end
+    --assert(#level[y]==8)
+    for x=1,#level[y] do
+      byte=rotl(byte,1)
+      byte=bor(byte,level[y][x])
+    end
+    checksum+=byte
+    --if (y==1) print(checksum)
+    quad=rotl(quad,8)
+    quad=bor(quad,byte)
+    byte=0
+    if (y%4==0) add(packed_bytes,quad) quad=0
+  end
+  assert(#packed_bytes==2)
+  quad=start_pos.y
+  quad=rotl(quad,4)
+  quad=bor(quad,start_pos.x)
+  checksum+=quad
+
+  quad=rotl(quad,4)
+  quad=bor(quad,end_pos.y)
+  quad=rotl(quad,4)
+  quad=bor(quad,end_pos.x)
+  checksum+=band(0xff,quad)
+
+  quad=rotl(quad,4)
+  quad=bor(quad,h)
+  quad=rotl(quad,4)
+  quad=bor(quad,w)
+  checksum+=band(0xff,quad)
+
+  quad=rotl(quad,8)
+  quad=bor(quad,checksum%256)
+  add(packed_bytes,rotr(quad,16))
+  print('\n')
+  for v in all(packed_bytes) do
+    print(v..': '..u32dec_pad_rev(v))
+  end
+end
+
+function u32dec_pad_rev(v)
+    local s,c,i,d="",0,0
+    if v<0 then
+        v-=0x8000
+        d={8,4,6,3,8,4,7,4,1,2} -- 2147483648 backwards
+    else
+        d={0,0,0,0,0,0,0,0,0,0}
+    end
+    repeat
+        i+=1
+        c+=d[i]+v%0x.000a/0x.0001
+        s=s..(c%10)
+        c=flr(c/10)
+        v/=10
+    until v==0
+    return s
 end
 
 push=add
