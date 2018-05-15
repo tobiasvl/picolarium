@@ -353,7 +353,7 @@ function _update()
         pal(14,10)
       end
     elseif button==32 then
-      turn_off_draw()
+      if (draw) turn_off_draw() else mode=11
     elseif button==1 or button==2 or button==4 or button==8 then
       move(button)
     end
