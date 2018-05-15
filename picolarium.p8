@@ -571,16 +571,20 @@ function draw_level(level)
 end
 
 function save_custom_level()
-  local byte,quad,checksum,packed_bytes,w,h,pad_y,pad_x=0,0,0,{},#level[1],#level,8-#level,8-#level[1]
-  for y=1,pad_y do
-    add(level,{0,0,0,0,0,0,0,0}) --fixme
+  local byte,quad,checksum,packed_bytes,w,h=0,0,0,{},#level[1],#level
+  local level2={}
+  for i=1,4 do
+    add(level2,{1,0,1,0,1,0,1,0})
+    add(level2,{0,1,0,1,0,1,0,1})
   end
-  for y=1,#level do
-    for i=1,pad_x do --fixme
-      add(level[y],0)
+  for y=1,h do
+    for x=1,w do
+      level2[y][x]=level[y][x]
     end
+  end
+  for y=1,8 do
     for x=1,8 do
-      byte=bor(rotr(byte,1),level[y][x])
+      byte=bor(rotr(byte,1),level2[y][x])
     end
     byte=rotl(byte,7)
     checksum+=byte
@@ -612,7 +616,7 @@ end
 -- thanks to felice and mrjorts from the bbs
 function u32dec_pad_rev(v)
   local s,c="",(v>=0 or v==0x8000) and 0 or v%0x.000a<0x.0004 and 6 or -4
-  for i=0,10 do
+  for i=1,10 do
     c+=v%0x.000a/0x.0001
     s=s..(c%10)
     c=flr(c/10)
