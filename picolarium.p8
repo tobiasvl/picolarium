@@ -4,49 +4,6 @@ __lua__
 -- picolarium
 -- by tobiasvl
 
-function load_state()
-  local ls={}
-  lvls_beat=0
-  local count=0
-  local d=0
-  local byte=dget(d)
-  for y=1,10 do
-    add(ls,{})
-    for x=1,10 do
-      local n=band(byte,1)
-      byte=rotl(byte,1)
-      add(ls[y],n)
-      lvls_beat+=n
-      count+=1
-      if count==32 then
-        d+=1
-        byte=dget(d)
-        count=0
-      end
-    end
-  end
-  return ls
-end
-
-function save_state()
-  local byte=0
-  local count=0
-  local d=0
-  for y=1,10 do
-    for x=1,10 do
-      byte=bor(byte, level_select[y][x])
-      byte=rotl(byte,1)
-      count+=1
-      if count==32 then
-        dset(d,byte)
-        byte=0
-        d+=1
-        count=0
-      end
-    end
-  end
-end
-
 --[[
 modes
 0: title
@@ -62,6 +19,44 @@ modes
 11: edit custom
 ]]
 
+function load_state()
+  local ls,count,d={lvls_beat=0},0,0
+  local byte=dget(d)
+  for y=1,10 do
+    add(ls,{})
+    for x=1,10 do
+      local n=band(byte,1)
+      byte=rotl(byte,1)
+      add(ls[y],n)
+      ls.lvls_beat+=n
+      count+=1
+      if count==32 then
+        d+=1
+        byte=dget(d)
+        count=0
+      end
+    end
+  end
+  return ls
+end
+
+function save_state()
+  local byte,count,d=0,0,0
+  for y=1,10 do
+    for x=1,10 do
+      byte=bor(byte, level_select[y][x])
+      byte=rotl(byte,1)
+      count+=1
+      if count==32 then
+        dset(d,byte)
+        byte=0
+        d+=1
+        count=0
+      end
+    end
+  end
+end
+
 function center(str,y,c)
   c=c or 7
   print(str,64-(#str*2),y,c)
@@ -74,8 +69,7 @@ function print_lvl_no()
   poke4(0x4300,peek4(0x5f28))
   camera()
   print(lvl,x,116,7)
-  x=ceil(lvl/#level_select)
-  y=lvl%#level_select
+  local x,y=ceil(lvl/#level_select),lvl%#level_select
   if (y==0) y=10
   if level_select[x][y]==1 then
     center("(solved)",122,5)
@@ -113,7 +107,7 @@ function _init()
   center("by",88)
   center("tobiasvl",96)
   lvl_xpos,lvl_ypos=0,0
-  start_pos,end_pos={x=0,y=0},{x=0,y=0}
+  level.start_pos,level.end_pos={x=0,y=0},{x=0,y=0}
   counter=0
   new_lvl=1
   new_lvl_xpos=0
@@ -135,11 +129,7 @@ end
 -- used and licensed under cc-by-sa https://creativecommons.org/licenses/by-nc-sa/4.0/
 -- modified to be tile-based instead of pixel-based
 function new_fizzlefader()
- local x = 0
- local y = 0
- local x2 = 0
- local y2 = 0
- local f = {}
+ local x,y,x2,y2,f=0,0,0,0,{}
  f.step = function()
   if x < 15 then
    x += 1
@@ -160,8 +150,7 @@ function new_fizzlefader()
    return n
   end
 
-  x2=x
-  y2=y
+  x2,y2=x,y
   for round=1,8 do
    next_x2=y2
    y2=bxor(x2,f(y2))
@@ -193,13 +182,13 @@ function turn_off_draw()
   draw=false
   pal()
   stack={}
-  start_pos,end_pos={x=0,y=0},{x=0,y=0}
+  level.start_pos,level.end_pos={x=0,y=0},{x=0,y=0}
   draw_level(level)
 end
 
 function verify_path()
   draw=false
-  end_pos.x,end_pos.y=xpos/8,ypos/8
+  level.end_pos={x=xpos/8,y=ypos/8}
   pal()
   bad_rows={}
   b_tiles={}
@@ -348,7 +337,7 @@ function _update()
       if draw then
         verify_path()
       else
-        start_pos.x,start_pos.y=xpos/8,ypos/8
+        level.start_pos={x=xpos/8,y=ypos/8}
         draw=true
         pal(14,10)
       end
@@ -402,7 +391,7 @@ function _update()
   if mode==9 then
     if btnp(🅾️) then
       if custom then
-        encode_level(level)
+        save_level(level,lvl)
       else
         lvl,lvl_xpos,lvl_ypos=new_lvl,new_lvl_xpos,new_lvl_ypos
         level=decode_level(levels[lvl])
@@ -434,13 +423,14 @@ function _draw()
     camera()
     center("select level",8)
     print_lvl_no()
-    if (lvls_beat==100) printg()
+    if (level_select.lvls_beat==100) printg()
   elseif mode==4 then
     cls()
     map()
     if (not custom) print_lvl_no()
     spr(0, xpos, ypos)
   elseif mode==5 then
+    local s=0
     cls()
     if (#b_tiles==0 and #w_tiles==0) mode=6
     for t in all(b_tiles) do
@@ -456,12 +446,11 @@ function _draw()
     map()
   elseif mode==6 or mode==7 then
     if #bad_rows==0 then
-      y=ceil(lvl/#level_select)
-      x=lvl%#level_select
+      local x,y=lvl%#level_select,ceil(lvl/#level_select)
       if (x==0) x=10
       if level_select[y][x]==0 then
         level_select[y][x]=1
-        lvls_beat+=1
+        level_select.lvls_beat+=1
         save_state()
       end
       camera()
@@ -471,7 +460,7 @@ function _draw()
         print("❎ edit",20,116,7)
         mode=9
       else
-        if lvls_beat<100 and find_unsolved() then
+        if level_select.lvls_beat<100 and find_unsolved() then
           print("🅾️ next unsolved level",20,108,7)
           print("❎ back",20,116,7)
           mode=9
@@ -483,6 +472,7 @@ function _draw()
     else
       if counter>=16 then
         counter=0
+        local s=0
         for y in all(bad_rows) do
           for x=1,(#level[1]) do
             s=mget(x,y)
@@ -549,8 +539,7 @@ function draw_level(level)
       mset(x,y,0)
     end
   end
-  width=#level[1]
-  height=#level
+  local width,height=#level[1],#level
   if (mode~=3) draw_border(width+1, 0)
   for y=1,height do
     if (mode~=3) mset(0,y,33)
@@ -617,12 +606,12 @@ function encode_level(level)
     byte=0
     if (y%4==0) add(packed_bytes,rotl(quad,8)) quad=0
   end
-  quad=bor(rotl(start_pos.y,4),start_pos.x)
+  quad=bor(rotl(level.start_pos.y,4),level.start_pos.x)
   checksum+=quad
 
   quad=rotr(quad,12)
-  quad=bor(quad,end_pos.y)
-  quad=bor(rotl(quad,4),end_pos.x)
+  quad=bor(quad,level.end_pos.y)
+  quad=bor(rotl(quad,4),level.end_pos.x)
   checksum+=band(0xff,quad)
 
   quad=rotr(quad,12)
