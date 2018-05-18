@@ -7,8 +7,8 @@ __lua__
 --[[
 modes
 0: title
-1: title_wait
-2: title_tutorial
+1: main_menu
+2: tutorial
 3: level_select
 4: play
 5: flip
@@ -17,12 +17,12 @@ modes
 8 and 9: win states
 10: resize
 11: edit custom
-12: main menu
+12: edit password
 13: custom submenu
 ]]
 
 function load_state()
-  local ls,count,d={lvls_beat=0},0,0
+  local ls,count,d={lvls=100,lvls_beat=0},0,0
   local byte=dget(d)
   for y=1,10 do
     add(ls,{})
@@ -59,6 +59,47 @@ function save_state()
   end
 end
 
+function load_custom_state()
+  custom_levels,ls={},{lvls=20}
+  local d,state=5,rotl(dget(4),5)
+  for i=1,20 do
+    local level={}
+    for e=0,2 do
+      local l=dget(d+e)
+      if (e~=2 or l~=0) add(level,l)
+    end
+    if (#level==3) custom_levels[i]=level
+    d+=3
+  end
+  d=1
+  for y=1,4 do
+    add(ls,{})
+    for x=1,5 do
+      if custom_levels[d] then
+        ls[y][x]=band(state,1)
+      else
+        ls[y][x]=2
+      end
+      state=rotl(state,1)
+      d+=1
+    end
+  end
+  return ls
+end
+
+function save_level(level,lvl)
+  local encoded_level=encode_level(level)
+  custom_levels[lvl]=encoded_level
+  local d=2+(lvl*3)
+  for i=0,2 do
+    dset(d+i,encoded_level[i+1])
+  end
+  local x,y=lvl%#level_select[1],ceil(lvl/#level_select[1])
+  if (x==0) x=#level_select[1]
+  level_select[y][x]=0
+  dset(4,rotr(band(rotl(dget(4),4+lvl),0xfffe.ffff),4+lvl))
+end
+
 function center(str,y,c)
   c=c or 7
   print(str,64-(#str*2),y,c)
@@ -70,10 +111,16 @@ function print_lvl_no()
   if (lvl>99) x-=2
   poke4(0x4300,peek4(0x5f28))
   camera()
-  print(lvl,x,116,7)
-  local x,y=ceil(lvl/#level_select),lvl%#level_select
-  if (y==0) y=10
-  if level_select[x][y]==1 then
+  c=7
+  if custom then
+    print("custom",52,24,12)
+    if (not levels[lvl]) c=5
+  end
+  print(lvl,x,116,c)
+  x=lvl%#level_select[1]
+  y=ceil(lvl/#level_select[1])
+  if (x==0) x=#level_select[1]
+  if level_select[y][x]==1 then
     center("(solved)",122,5)
   end
   poke4(0x5f28,peek4(0x4300))
@@ -99,11 +146,11 @@ end
 
 function _init()
   cartdata("picolarium")
-  level_select=load_state()
   palt(0,false)
   mode=0
   draw=false
   custom=false
+  edit=false
   lvl=1
   level=nil
   center("by",88)
@@ -113,10 +160,10 @@ function _init()
   new_lvl=1
   new_lvl_xpos=0
   new_lvl_ypos=0
+  custom_levels={}
 end
 
 function play_init(level)
-  menuitem(1,"level select",function() turn_off_draw() pal() mode=3 end)
   draw_level(level)
   w=flr((2+#level[1])/2)
   h=flr((2+#level)/2)
@@ -281,14 +328,12 @@ end
 function _update()
   if mode==0 then
     if btnp(🅾️) or btnp(❎) then
-      mode=1
+      menu_selection,mode=1,1
     end
   elseif mode==1 then
-    if btnp(🅾️) then
-      menu_selection=1
-      mode=12
-    end
-  elseif mode==12 then
+    custom,edit=false,false
+    level_select=load_state()
+    levels=stock_levels
     if (btnp(⬆️)) menu_selection=menu_selection==1 and 3 or menu_selection-1
     if (btnp(⬇️)) menu_selection=menu_selection%3+1
     if btnp(🅾️) then
@@ -302,31 +347,33 @@ function _update()
       end
     end
   elseif mode==13 then
+    custom=true
+    level_select=load_custom_state()
+    levels=custom_levels
     if (btnp(⬆️)) menu_selection=menu_selection==1 and 2 or 1
     if (btnp(⬇️)) menu_selection=menu_selection%2+1
     if btnp(🅾️) then
       if menu_selection==1 then
-        --todo change level_select
         mode=3
       else
-        mode=10
-        empty_level={{0,1},{0,1}}
-        level=empty_level
+        edit=true
+        mode=3
       end
     elseif btnp(❎) then
       menu_selection=2
-      mode=12
+      mode=1
     end
   elseif mode==2 then
     if (btnp(🅾️) or btnp(❎)) mode=12
   elseif mode==3 then
+    menuitem(1)
     if btnp(⬅️) then
-      if lvl%#level_select~=1 then
+      if lvl%#level_select[1]~=1 then
         lvl-=1
         lvl_xpos-=8
       elseif lvl~=1 then
         lvl-=1
-        lvl_xpos+=(#level_select-1)*8
+        lvl_xpos+=(#level_select[1]-1)*8
         lvl_ypos-=8
       end
     end
@@ -334,16 +381,38 @@ function _update()
       if lvl%#level_select[1]~=0 then
         lvl+=1
         lvl_xpos+=8
-      elseif lvl~=100 then
+      elseif lvl~=level_select.lvls then
         lvl+=1
-        lvl_xpos-=(#level_select-1)*8
+        lvl_xpos-=(#level_select[1]-1)*8
         lvl_ypos+=8
       end
     end
-    if (btnp(⬆️) and lvl>10) lvl-=10 lvl_ypos-=8
-    if (btnp(⬇️) and lvl<=90) lvl+=10 lvl_ypos+=8
-    if (btnp(🅾️)) mode=4 level=decode_level(levels[lvl]) play_init(level)
+    if (btnp(⬆️) and lvl>#level_select[1]) lvl-=#level_select[1] lvl_ypos-=8
+    if (btnp(⬇️) and lvl<=level_select.lvls-#level_select[1]) lvl+=#level_select[1] lvl_ypos+=8
+    if btnp(🅾️) then
+      if edit then
+        if levels[lvl] then
+          empty_level=decode_level(levels[lvl])
+        else
+          empty_level={{0,1},{0,1},start_pos={x=0,y=0},end_pos={x=0,y=0}}
+        end
+        level=empty_level
+        play_init(level)
+        mode=10
+      elseif levels[lvl] then
+        mode=4
+        level=decode_level(levels[lvl])
+        play_init(level)
+      end
+    elseif btnp(❎) and edit then
+      mode=12
+    end
   elseif mode==4 then
+    if edit then
+      menuitem(2,"edit level",function() pal() mode=11 end)
+    else
+      menuitem(1,"level select",function() turn_off_draw() pal() mode=3 end)
+    end
     button=btnp()
     if button==16 then
       if draw then
@@ -372,9 +441,10 @@ function _update()
       add(empty_level,new_row)
     end
     if (btnp(➡️) and x<8) foreach(empty_level,function(x) add(x,1) end)
-    if (btnp(⬅️) and x>2) foreach(empty_level,function(x) del(x,1) end)
+    if (btnp(⬅️) and x>2) foreach(empty_level,function(x) x[#x]=nil end)
     if (btnp(🅾️)) mode=11 play_init(empty_level)
   elseif mode==11 then
+    menuitem(1,"resize level",function() mode=10 end)
     button=btnp()
     local x,y=xpos/8,ypos/8
     if button==16 and mget(x,y)~=33 then
@@ -388,7 +458,6 @@ function _update()
       if (invalid) empty_level[y][x]=t
     elseif button==32 then
       mode=4
-      custom=true
       turn_off_draw()
       draw_level(level) --fixme empty_level?
     elseif button==1 or button==2 or button==4 or button==8 then
@@ -397,13 +466,14 @@ function _update()
   end
   if mode==7 or mode==8 or mode==9 then
     if btnp(❎) then
-      if (custom) mode=11 else mode=3
+      if (edit) mode=11 else mode=3
     end
   end
   if mode==9 then
     if btnp(🅾️) then
-      if custom then
+      if edit then
         save_level(level,lvl)
+        mode=3
       else
         lvl,lvl_xpos,lvl_ypos=new_lvl,new_lvl_xpos,new_lvl_ypos
         level=decode_level(levels[lvl])
@@ -426,7 +496,15 @@ function _draw()
     map()
     spr(96,0,24,16,2)
     spr(128,9,104,14,3)
-    center("press 🅾️",60,0)
+    local colors={{7,0},{7,0},{7,0}}
+    colors[menu_selection]={0,7}
+    rectfill(0,48,128,100,7)
+    rectfill(48,60,80,70,colors[1][1])
+    print("play",49,61,colors[1][2])
+    rectfill(48,67,80,77,colors[2][1])
+    print("custom",49,68,colors[2][2])
+    rectfill(48,74,80,80,colors[3][1])
+    print("tutorial",49,75,colors[3][2])
   elseif mode==2 then
     rectfill(0,60,127,90,7)
     cursor(8,52)
@@ -435,16 +513,6 @@ function _draw()
     print("🅾️: start and finish a\n    single stroke\n")
     print("flip tiles so each horizontal\nline is one color")
     print("e.g. from ▒/▥ to █/▤")
-  elseif mode==12 then
-    local colors={{7,0},{7,0},{7,0}}
-    colors[menu_selection]={0,7}
-    rectfill(0,48,128,100,7)
-    rectfill(48,60,80,70,colors[1][1])
-    print("play",49,61,colors[1][2])
-    rectfill(48,67,80,77,colors[2][1])
-    print("custom",49,68,colors[2][2])
-    rectfill(48,74,80,81,colors[3][1])
-    print("tutorial",49,75,colors[3][2])
   elseif mode==13 then
     local colors={{7,0},{7,0}}
     colors[menu_selection]={0,7}
@@ -452,7 +520,7 @@ function _draw()
     print("custom",49,61,5)
     rectfill(48,67,80,77,colors[1][1])
     print("play",49,68,colors[1][2])
-    rectfill(48,74,80,81,colors[2][1])
+    rectfill(48,74,80,80,colors[2][1])
     print("edit",49,75,colors[2][2])
   elseif mode==3 then
     palt()
@@ -464,13 +532,33 @@ function _draw()
     draw_level(level_select)
     spr(0, lvl_xpos, lvl_ypos)
     camera()
-    center("select level",8)
+    select=edit and "edit" or "select"
+    center(select.." level",8)
+    if edit then
+      print("press x to edit level",16,16)
+      print("press z to edit password",16,22)
+    end
     print_lvl_no()
     if (level_select.lvls_beat==100) printg()
+    if edit then
+      rect(42,85,84,111,12)
+      rectfill(43,86,83,110,0)
+      center("password",87,12)
+      cursor(44,93)
+      color(7)
+      for v in all(levels[lvl]) do
+        print(encode_password(v))
+      end
+    end
   elseif mode==4 then
     cls()
     map()
-    if (not custom) print_lvl_no()
+    if edit then
+      print("solve the level")
+      print("use one stroke to eliminate\nall black and white tiles")
+    else
+      print_lvl_no()
+    end
     spr(0, xpos, ypos)
   elseif mode==5 then
     local s=0
@@ -489,16 +577,21 @@ function _draw()
     map()
   elseif mode==6 or mode==7 then
     if #bad_rows==0 then
-      local x,y=lvl%#level_select,ceil(lvl/#level_select)
-      if (x==0) x=10
-      if level_select[y][x]==0 then
+      local x,y=lvl%#level_select[1],ceil(lvl/#level_select[1])
+      if (x==0) x=#level_select[1]
+      if custom then
         level_select[y][x]=1
-        level_select.lvls_beat+=1
-        save_state()
+        dset(4,rotr(bor(rotl(dget(4),4+lvl),1),4+lvl))
+      else
+        if level_select[y][x]==0 then
+          level_select[y][x]=1
+          level_select.lvls_beat+=1
+          save_state()
+        end
       end
       camera()
       center("clear!",16,3)
-      if custom then
+      if edit then
         rect(42,50,84,76,12)
         rectfill(43,51,83,75,0)
         center("password",52,12)
@@ -511,7 +604,7 @@ function _draw()
         print("❎ edit",20,116,7)
         mode=9
       else
-        if level_select.lvls_beat<100 and find_unsolved() then
+        if not custom and level_select.lvls_beat<level_select.lvls and find_unsolved() then
           print("🅾️ next unsolved level",20,108,7)
           print("❎ back",20,116,7)
           mode=9
@@ -546,7 +639,7 @@ function _draw()
       camera()
       center("failed",16,8)
       print("🅾️ try again",40,108,7)
-      if (custom) back="edit" else back="back"
+      if (edit) back="edit" else back="back"
       print("❎ "..back,40,116,7)
       poke4(0x5f28,peek4(0x4300))
       mode=7
@@ -714,7 +807,7 @@ of the levels are just 0 instead of the checkerboard pattern.
 
 level hints to come, probably.
 ]]
-levels = {
+stock_levels = {
   { --1
     0b0000101000001010.0000101000001010,
     0b.0000000000001010,
