@@ -17,6 +17,8 @@ modes
 8 and 9: win states
 10: resize
 11: edit custom
+12: main menu
+13: custom submenu
 ]]
 
 function load_state()
@@ -103,11 +105,10 @@ function _init()
   draw=false
   custom=false
   lvl=1
-  level=decode_level(levels[lvl])
+  level=nil
   center("by",88)
   center("tobiasvl",96)
   lvl_xpos,lvl_ypos=0,0
-  level.start_pos,level.end_pos={x=0,y=0},{x=0,y=0}
   counter=0
   new_lvl=1
   new_lvl_xpos=0
@@ -278,35 +279,46 @@ function path_tile(dir1, dir2)
 end
 
 function _update()
-  if (mode==1 and btnp(❎)) mode=2
-  if mode==2 and btn(❎) then
-    mode=10
-    empty_level={{0,1},{0,1}}
-    level=empty_level
-  end
   if mode==0 then
     if btnp(🅾️) or btnp(❎) then
-      palt()
-      for x=0,15 do
-        for y=0,12 do
-          if (y~=3 and y~=4) mset(x,y,32)
-        end
-      end
-      map()
-      palt(0,false)
-      spr(96,0,24,16,2)
       mode=1
     end
-  elseif mode==1 or mode==2 then
+  elseif mode==1 then
     if btnp(🅾️) then
-      palt()
-      for x=0,15 do
-        for y=0,15 do
-          mset(x,y,0)
-        end
-      end
-      mode=3
+      menu_selection=1
+      mode=12
     end
+  elseif mode==12 then
+    if (btnp(⬆️)) menu_selection=menu_selection==1 and 3 or menu_selection-1
+    if (btnp(⬇️)) menu_selection=menu_selection%3+1
+    if btnp(🅾️) then
+      if menu_selection==1 then
+        mode=3
+      elseif menu_selection==2 then
+        menu_selection=1
+        mode=13
+      elseif menu_selection==3 then
+        mode=2
+      end
+    end
+  elseif mode==13 then
+    if (btnp(⬆️)) menu_selection=menu_selection==1 and 2 or 1
+    if (btnp(⬇️)) menu_selection=menu_selection%2+1
+    if btnp(🅾️) then
+      if menu_selection==1 then
+        --todo change level_select
+        mode=3
+      else
+        mode=10
+        empty_level={{0,1},{0,1}}
+        level=empty_level
+      end
+    elseif btnp(❎) then
+      menu_selection=2
+      mode=12
+    end
+  elseif mode==2 then
+    if (btnp(🅾️) or btnp(❎)) mode=12
   elseif mode==3 then
     if btnp(⬅️) then
       if lvl%#level_select~=1 then
@@ -406,18 +418,49 @@ function _draw()
   if mode==0 then
     title_draw()
   elseif mode==1 then
+    for x=0,15 do
+      for y=0,12 do
+        if (y~=3 and y~=4) mset(x,y,32)
+      end
+    end
+    map()
+    spr(96,0,24,16,2)
     spr(128,9,104,14,3)
     center("press 🅾️",60,0)
-    center("(❎ for tutorial)",68,0)
   elseif mode==2 then
-    rectfill(0,60,127,72,7)
+    rectfill(0,60,127,90,7)
     cursor(8,52)
     color(0)
     print("⬅️➡️⬆️⬇️: move")
     print("🅾️: start and finish a\n    single stroke\n")
     print("flip tiles so each horizontal\nline is one color")
     print("e.g. from ▒/▥ to █/▤")
+  elseif mode==12 then
+    local colors={{7,0},{7,0},{7,0}}
+    colors[menu_selection]={0,7}
+    rectfill(0,48,128,100,7)
+    rectfill(48,60,80,70,colors[1][1])
+    print("play",49,61,colors[1][2])
+    rectfill(48,67,80,77,colors[2][1])
+    print("custom",49,68,colors[2][2])
+    rectfill(48,74,80,81,colors[3][1])
+    print("tutorial",49,75,colors[3][2])
+  elseif mode==13 then
+    local colors={{7,0},{7,0}}
+    colors[menu_selection]={0,7}
+    rectfill(0,48,128,100,7)
+    print("custom",49,61,5)
+    rectfill(48,67,80,77,colors[1][1])
+    print("play",49,68,colors[1][2])
+    rectfill(48,74,80,81,colors[2][1])
+    print("edit",49,75,colors[2][2])
   elseif mode==3 then
+    palt()
+    for x=0,15 do
+      for y=0,15 do
+        mset(x,y,0)
+      end
+    end
     draw_level(level_select)
     spr(0, lvl_xpos, lvl_ypos)
     camera()
@@ -456,6 +499,14 @@ function _draw()
       camera()
       center("clear!",16,3)
       if custom then
+        rect(42,50,84,76,12)
+        rectfill(43,51,83,75,0)
+        center("password",52,12)
+        cursor(44,58)
+        color(7)
+        for v in all(encode_level(level)) do
+          print(encode_password(v))
+        end
         print("🅾️ save as custom level "..lvl,20,108,7)
         print("❎ edit",20,116,7)
         mode=9
