@@ -60,7 +60,7 @@ function save_state()
 end
 
 function load_custom_state()
-  custom_levels,ls={},{lvls=20}
+  local level_select,custom_levels={lvls=20},{lvls=0}
   local d,state=5,rotl(dget(4),5)
   for i=1,20 do
     local level={}
@@ -68,23 +68,23 @@ function load_custom_state()
       local l=dget(d+e)
       if (e~=2 or l~=0) add(level,l)
     end
-    if (#level==3) custom_levels[i]=level
+    if (#level==3) custom_levels[i]=level custom_levels.lvls+=1
     d+=3
   end
   d=1
   for y=1,4 do
-    add(ls,{})
+    add(level_select,{})
     for x=1,5 do
       if custom_levels[d] then
-        ls[y][x]=band(state,1)
+        level_select[y][x]=band(state,1)
       else
-        ls[y][x]=2
+        level_select[y][x]=2
       end
       state=rotl(state,1)
       d+=1
     end
   end
-  return ls
+  return level_select,custom_levels
 end
 
 function save_level(level,lvl)
@@ -111,11 +111,8 @@ function print_lvl_no()
   if (lvl>99) x-=2
   poke4(0x4300,peek4(0x5f28))
   camera()
-  c=7
-  if custom then
-    print("custom",52,24,12)
-    if (not levels[lvl]) c=5
-  end
+  local c=7
+  if (custom) c=levels[lvl] and 12 or 5
   print(lvl,x,116,c)
   x=lvl%#level_select[1]
   y=ceil(lvl/#level_select[1])
@@ -331,15 +328,14 @@ function _update()
       menu_selection,mode=1,modes.main_menu
     end
   elseif mode==modes.main_menu then
-    custom,edit=false,false
-    level_select=load_state()
-    levels=stock_levels
     if (btnp(⬆️)) menu_selection=menu_selection==1 and 3 or menu_selection-1
     if (btnp(⬇️)) menu_selection=menu_selection%3+1
     if btnp(🅾️) then
       if menu_selection==1 then
+        if (custom or not level_select) custom,edit,level_select,levels,lvl,lvl_xpos,lvl_ypos=false,false,load_state(),stock_levels,1,0,0
         mode=modes.level_select
       elseif menu_selection==2 then
+        if (not custom) custom,lvl,lvl_xpos,lvl_ypos,level_select,levels=true,1,0,0,load_custom_state()
         menu_selection=1
         mode=modes.custom_submenu
       elseif menu_selection==3 then
@@ -347,14 +343,11 @@ function _update()
       end
     end
   elseif mode==modes.custom_submenu then
-    custom=true
-    level_select=load_custom_state()
-    levels=custom_levels
     if (btnp(⬆️)) menu_selection=menu_selection==1 and 2 or 1
     if (btnp(⬇️)) menu_selection=menu_selection%2+1
     if btnp(🅾️) then
-      edit=menu_selection~=1
-      mode=modes.level_select
+      if (menu_selection==2 or levels.lvls>0) mode=modes.level_select
+      edit=menu_selection==2
     elseif btnp(❎) then
       menu_selection=2
       mode=modes.main_menu
@@ -363,6 +356,7 @@ function _update()
     if (btnp(🅾️) or btnp(❎)) mode=modes.main_menu
   elseif mode==modes.level_select then
     menuitem(1)
+    menuitem(2)
     if btnp(⬅️) then
       if lvl%#level_select[1]~=1 then
         lvl-=1
@@ -400,8 +394,8 @@ function _update()
         level=decode_level(levels[lvl])
         play_init(level)
       end
-    elseif btnp(❎) and edit then
-      mode=modes.edit_password
+    elseif btnp(❎) then
+      if (edit) mode=modes.edit_password else palt(0,false) mode=custom and modes.custom_submenu or modes.main_menu
     end
   elseif mode==modes.play then
     if edit then
@@ -419,7 +413,7 @@ function _update()
         pal(14,10)
       end
     elseif button==32 then
-      if (draw) turn_off_draw() else mode=modes.edit_custom
+      if (draw) turn_off_draw() else mode=edit and modes.edit_custom or modes.level_select
     elseif button==1 or button==2 or button==4 or button==8 then
       move(button)
     end
@@ -427,6 +421,8 @@ function _update()
     counter+=1
     if (btnp(🅾️)) mode=modes.play turn_off_draw()
   elseif mode==modes.resize then
+    menuitem(1,"level select",function() turn_off_draw() pal() mode=modes.level_select end)
+    menuitem(2)
     local x,y=#empty_level[1],#empty_level
     if (btnp(⬆️) and y>2) empty_level[y]=nil
     if (btnp(⬇️) and y<8) then
@@ -439,8 +435,9 @@ function _update()
     if (btnp(➡️) and x<8) foreach(empty_level,function(x) add(x,1) end)
     if (btnp(⬅️) and x>2) foreach(empty_level,function(x) x[#x]=nil end)
     if (btnp(🅾️)) mode=modes.edit_custom play_init(empty_level)
+    if (btnp(❎)) mode=modes.level_select
   elseif mode==modes.edit_custom then
-    menuitem(1,"resize level",function() mode=modes.resize end)
+    menuitem(2,"resize level",function() mode=modes.resize end)
     button=btnp()
     local x,y=xpos/8,ypos/8
     if button==16 and mget(x,y)~=33 then
@@ -510,10 +507,18 @@ function _draw()
     print("flip tiles so each horizontal\nline is one color")
     print("e.g. from ▒/▥ to █/▤")
   elseif mode==modes.custom_submenu then
-    local colors={{7,0},{7,0}}
-    colors[menu_selection]={0,7}
+    local colors={levels.lvls==0 and {7,5} or {7,0},{7,0}}
+    if (menu_selection==1 and levels.lvls==0) colors[1]={5,7} else colors[menu_selection]={0,7}
+    for x=0,15 do
+      for y=0,12 do
+        if (y~=3 and y~=4) mset(x,y,32)
+      end
+    end
+    map()
+    spr(96,0,24,16,2)
+    spr(128,9,104,14,3)
     rectfill(0,48,128,100,7)
-    print("custom",49,61,5)
+    print("custom",49,61,12)
     rectfill(48,67,80,77,colors[1][1])
     print("play",49,68,colors[1][2])
     rectfill(48,74,80,80,colors[2][1])
@@ -531,8 +536,8 @@ function _draw()
     select=edit and "edit" or "select"
     center(select.." level",8)
     if edit then
-      print("press x to edit level",16,16)
-      print("press z to edit password",16,22)
+      print("press z to edit level",16,16)
+      print("press x to edit password",16,22)
     end
     print_lvl_no()
     if (level_select.lvls_beat==100) printg()
