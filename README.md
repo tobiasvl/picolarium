@@ -1,9 +1,9 @@
 Picolarium
 ==========
 
-Picolarium is a [PICO-8](https://www.lexaloffle.com/pico-8.php) clone of the game _Polarium_ for DS.
+Picolarium is a [PICO-8](https://www.lexaloffle.com/pico-8.php) clone of the game _Polarium_ for DS and GBA.
 
-Draw a single stroke, flip tiles from black to white or vice versa, and turn each single line into a solid color each.
+Draw a single stroke, flip tiles from black to white or vice versa, and make horizontal lines of the same colour.
 
 Links
 -----
