@@ -160,6 +160,7 @@ function _init()
   cartdata("picolarium")
   palt(0,false)
   mode=modes.title
+  menu_selection=1
   draw=false
   custom=false
   edit=false
@@ -343,7 +344,7 @@ end
 function _update()
   if mode==modes.title then
     if btnp(🅾️) or btnp(❎) then
-      menu_selection,mode=1,modes.main_menu
+      mode=modes.main_menu
     end
   elseif mode==modes.main_menu then
     if (btnp(⬆️)) menu_selection=menu_selection==1 and 3 or menu_selection-1
