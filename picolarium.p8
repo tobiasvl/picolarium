@@ -174,6 +174,8 @@ function _init()
   new_lvl_xpos=0
   new_lvl_ypos=0
   custom_levels={}
+  local emulated=stat(102)!=0 and stat(102)!="www.lexaloffle.com" and stat(102)!="www.playpico.com"
+  buttons={o=emulated and "z" or "🅾️",x=emulated and "x" or "❎"}
 end
 
 function play_init(level)
@@ -520,7 +522,7 @@ function _draw()
     cursor(8,52)
     color(0)
     print("⬅️➡️⬆️⬇️: move")
-    print("🅾️: start and finish a\n    single stroke\n")
+    print(buttons.o..": start and finish a\n"..(buttons.o=="z" and "" or " ").."   single stroke\n")
     print("flip tiles so each horizontal\nline is one color")
     print("e.g. from ▒/▥ to █/▤")
   elseif mode==modes.custom_submenu then
@@ -553,8 +555,8 @@ function _draw()
     select=edit and "edit" or "select"
     center(select.." level",8)
     if edit then
-      print("press z to edit level",16,16)
-      print("press x to edit password",16,22)
+      print("press "..buttons.o.." to edit level",16,16)
+      print("press "..buttons.x.." to edit password",16,22)
     end
     print_lvl_no()
     if (level_select.lvls_beat==100) printg()
@@ -626,16 +628,16 @@ function _draw()
         for v in all(encode_level(level)) do
           print(encode_password(v))
         end
-        print("🅾️ save as custom level "..lvl,20,108,7)
-        print("❎ edit",20,116,7)
+        print(buttons.o.." save as custom level "..lvl,20,108,7)
+        print(buttons.x.." edit",20,116,7)
         mode=modes.win_state2
       else
         if not custom and level_select.lvls_beat<level_select.lvls and find_unsolved() then
-          print("🅾️ next unsolved level",20,108,7)
-          print("❎ back",20,116,7)
+          print(buttons.o.." next unsolved level",20,108,7)
+          print(buttons.x.." back",20,116,7)
           mode=modes.win_state2
         else
-          center("❎ back",108,7)
+          center(buttons.x.." back",108,7)
           mode=modes.win_state1
         end
       end
@@ -662,9 +664,9 @@ function _draw()
       end
       save_and_reset_camera()
       center("failed",16,8)
-      print("🅾️ try again",40,108,7)
+      print(buttons.o.." try again",40,108,7)
       if (edit) back="edit" else back="back"
-      print("❎ "..back,40,116,7)
+      print(buttons.x.." "..back,40,116,7)
       restore_camera()
       mode=modes.fail_state
     end
@@ -675,9 +677,9 @@ function _draw()
     map()
     camera()
     center("resize level",8)
-    center("press z to edit",16,5)
+    center("press "..buttons.o.." to edit",16,5)
     center(x.." x "..y,108)
-    --center("press z to edit",122,5)
+    --center("press "..buttons.o.." to edit",122,5)
   elseif mode==modes.edit_custom then
     cls()
     draw_level(level)
@@ -685,8 +687,8 @@ function _draw()
     spr(0, xpos, ypos)
     save_and_reset_camera()
     center("edit level",8)
-    center("press z to solve",16,5)
-    center("press x to flip tile",108)
+    center("press "..buttons.x.." to solve",16,5)
+    center("press "..buttons.o.." to flip tile",108)
     center("a single row cannot",116,5)
     center("be a solid color",122,5)
     restore_camera()
