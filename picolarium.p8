@@ -93,7 +93,7 @@ end
 
 function save_level(level,lvl)
   local encoded_level=encode_level(level)
-  custom_levels[lvl]=encoded_level
+  levels[lvl]=encoded_level
   local d=2+(lvl*3)
   for i=0,2 do
     dset(d+i,encoded_level[i+1])
@@ -174,7 +174,6 @@ function _init()
   new_lvl=1
   new_lvl_xpos=0
   new_lvl_ypos=0
-  custom_levels={}
   local emulated=stat(102)!=0 and stat(102)!="www.lexaloffle.com" and stat(102)!="www.playpico.com"
   buttons={o=emulated and "z" or "🅾️",x=emulated and "x" or "❎"}
 end
