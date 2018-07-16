@@ -109,12 +109,23 @@ function center(str,y,c)
   print(str,64-(#str*2),y,c)
 end
 
+-- these two functions are used to easily center
+-- text even if the camera is moved.
+-- i regret using the camera to center the level
+function save_and_reset_camera()
+  poke4(0x4300,peek4(0x5f28))
+  camera()
+end
+
+function restore_camera()
+  poke4(0x5f28,peek4(0x4300))
+end
+
 function print_lvl_no()
   local x=62
   if (lvl>9) x-=2
   if (lvl>99) x-=2
-  poke4(0x4300,peek4(0x5f28))
-  camera()
+  save_and_reset_camera()
   local c=7
   if (custom) c=levels[lvl] and 12 or 5
   print(lvl,x,116,c)
@@ -124,7 +135,7 @@ function print_lvl_no()
   if level_select[y][x]==1 then
     center("(solved)",122,5)
   end
-  poke4(0x5f28,peek4(0x4300))
+  restore_camera()
 end
 
 function find_unsolved()
@@ -561,8 +572,11 @@ function _draw()
     cls()
     map()
     if edit then
-      print("solve the level")
-      print("use one stroke to eliminate\nall black and white tiles")
+      save_and_reset_camera()
+      center("solve the level",8)
+      center("use one stroke to eliminate",16)
+      center("all black and white tiles",24)
+      restore_camera()
     else
       menuitem(2,"show hint",function() hint=true end)
       print_lvl_no()
@@ -646,14 +660,12 @@ function _draw()
         end
         map()
       end
-      -- i regret using the camera to center the level
-      poke4(0x4300,peek4(0x5f28))
-      camera()
+      save_and_reset_camera()
       center("failed",16,8)
       print("🅾️ try again",40,108,7)
       if (edit) back="edit" else back="back"
       print("❎ "..back,40,116,7)
-      poke4(0x5f28,peek4(0x4300))
+      restore_camera()
       mode=modes.fail_state
     end
   elseif mode==modes.resize then
@@ -671,14 +683,13 @@ function _draw()
     draw_level(level)
     palt()
     spr(0, xpos, ypos)
-    poke4(0x4300,peek4(0x5f28))
-    camera()
+    save_and_reset_camera()
     center("edit level",8)
-    center("press x to solve",16,5)
-    center("press z to flip tile",108)
+    center("press z to solve",16,5)
+    center("press x to flip tile",108)
     center("a single row cannot",116,5)
     center("be a solid color",122,5)
-    poke4(0x5f28,peek4(0x4300))
+    restore_camera()
   end
 end
 
