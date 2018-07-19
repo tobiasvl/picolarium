@@ -18,7 +18,10 @@ modes={
   resize=10,
   edit_custom=11,
   edit_password=12,
-  custom_submenu=13
+  custom_submenu=13,
+  validate_password=14,
+  valid_password=15,
+  invalid_password=16
 }
 
 function load_state()
@@ -376,6 +379,7 @@ function _update()
     hint=false
     menuitem(1)
     menuitem(2)
+    if (custom) menuitem(1,"main menu",function() cls() palt(0,false) mode=modes.custom_submenu end)
     if btnp(⬅️) then
       if lvl%#level_select[1]~=1 then
         lvl-=1
@@ -414,7 +418,22 @@ function _update()
         play_init(level)
       end
     elseif btnp(❎) then
-      if (edit) mode=modes.edit_password else palt(0,false) mode=custom and modes.custom_submenu or modes.main_menu
+      if edit then
+        mode,xpos,ypos,char,line,char_xpos,char_ypos,current_char=modes.edit_password,0,0,1,1,43,92,7
+        numpad_x,numpad_y=39,32
+        dpad_x,dpad_y=numpad_x+30,numpad_y-1
+        xpos,ypos=numpad_x-2,numpad_y-1
+        current_password={}
+        if levels[lvl] then
+          current_password=encode_password(levels[lvl])
+        else
+          for i=1,3 do
+            add(current_password,{0,0,0,0,0,0,0,0,0,0})
+          end
+        end
+      else
+        palt(0,false) mode=custom and modes.custom_submenu or modes.main_menu
+      end
     end
   elseif mode==modes.play then
     if edit then
@@ -470,11 +489,127 @@ function _update()
       if (invalid) empty_level[y][x]=t
     elseif button==32 then
       mode=modes.play
-      turn_off_draw()
-      draw_level(level) --fixme empty_level?
+      draw_level(level)
     elseif button==1 or button==2 or button==4 or button==8 then
       move(button)
     end
+  elseif mode==modes.edit_password then
+    menuitem(1,"level select",function() mode=modes.level_select end)
+    poke(0x5f2d,1)
+    if stat(30) then
+      local key=stat(31)
+      if key=="\b" then
+        current_password[line][char]=0
+        if char>1 then
+          char-=1 char_xpos-=4
+        elseif line>1 then
+          line-=1 char=10 char_xpos+=36 char_ypos-=6
+        end
+      else
+        local c=tonum(key)
+        if c then
+          current_password[line][char]=c
+          if char==10 and line<3 then
+            char=1 char_xpos=43 char_ypos+=6 line+=1
+          elseif char<10 then
+            char+=1
+            char_xpos+=4
+          end
+        end
+      end
+    end
+    if btnp(⬅️) then
+      if current_char=="left" then
+        current_char=6
+        xpos=numpad_x+14
+      elseif current_char=="ok" then
+        current_char=0
+        xpos=numpad_x+14
+      elseif not tonum(current_char) then
+        current_char="left"
+        xpos=dpad_x
+        ypos=dpad_y+12
+      elseif current_char!=1 and current_char!=4 and current_char!=7 and current_char!=0 then
+        xpos-=8 current_char-=1
+      end
+    elseif btnp(➡️) then
+      if current_char==9 then
+        current_char="up"
+        xpos=dpad_x+8
+      elseif current_char==6 then
+        current_char="left"
+        xpos=dpad_x
+      elseif current_char==3 then
+        current_char="down"
+        xpos=dpad_x+8
+      elseif current_char==0 then
+        current_char="ok"
+        xpos=dpad_x+8
+        ypos=dpad_y+36
+      elseif not tonum(current_char) then
+        current_char="right"
+        xpos=dpad_x+16
+        ypos=dpad_y+12
+      elseif tonum(current_char) and current_char>0 then
+        xpos+=8 current_char+=1
+      end
+    elseif btnp(⬆️) then
+      if current_char=="ok" then
+        current_char="down"
+        xpos=dpad_x+8
+        ypos=dpad_y+24
+      elseif not tonum(current_char) then
+        current_char="up"
+        xpos=dpad_x+8
+        ypos=dpad_y
+      elseif current_char<7 then
+        ypos-=12 current_char+=3
+      end
+    elseif btnp(⬇️) and current_char!="ok" then
+      if current_char=="down" then
+        current_char="ok"
+        xpos=dpad_x+8
+        ypos=dpad_y+36
+      elseif not tonum(current_char) then
+        current_char="down"
+        xpos=dpad_x+8
+        ypos=dpad_y+24
+      elseif current_char>2 then
+        ypos+=12 current_char-=3
+      end
+    elseif btnp(🅾️) and (char<=10 and line <=3) then
+      if current_char=="left" then
+        if (char>1) char-=1 char_xpos-=4
+      elseif current_char=="right" then
+        if (char<10) char+=1 char_xpos+=4
+      elseif current_char=="up" then
+        if (line>1) line-=1 char_ypos-=6
+      elseif current_char=="down" then
+        if (line<3) line+=1 char_ypos+=6
+      elseif current_char=="ok" then
+        mode=modes.validate_password
+      else
+        current_password[line][char]=current_char
+        if char==10 and line<3 then
+          char=1 char_xpos=43 char_ypos+=6 line+=1
+        elseif char<10 then
+          char+=1
+          char_xpos+=4
+        end
+      end
+    end
+  elseif mode==modes.validate_password then
+    level=decode_level(decode_password(current_password),true)
+    if (level and #level>0) mode=modes.valid_password else mode=modes.invalid_password
+  elseif mode==modes.valid_password then
+    if btnp(🅾️) then
+      save_level(level,lvl)
+      mode=modes.level_select
+    elseif btnp(❎) then
+      mode=modes.edit_password
+    end
+  elseif mode==modes.invalid_password then
+    if (btnp()!=0) mode=modes.edit_password
   end
   if mode==modes.fail_state or mode==modes.win_state1 or mode==modes.win_state2 then
     if btnp(❎) then
@@ -526,6 +661,7 @@ function _draw()
     print("flip tiles so each horizontal\nline is one color")
     print("e.g. from ▒/▥ to █/▤")
   elseif mode==modes.custom_submenu then
+    menuitem(1)
     local colors={levels.lvls==0 and {7,5} or {7,0},{7,0}}
     if (menu_selection==1 and levels.lvls==0) colors[1]={5,7} else colors[menu_selection]={0,7}
     for x=0,15 do
@@ -561,14 +697,7 @@ function _draw()
     print_lvl_no()
     if (level_select.lvls_beat==100) printg()
     if edit then
-      rect(42,85,84,111,12)
-      rectfill(43,86,83,110,0)
-      center("password",87,12)
-      cursor(44,93)
-      color(7)
-      for v in all(levels[lvl]) do
-        print(encode_password(v))
-      end
+      print_password(encode_password(levels[lvl]))
     end
   elseif mode==modes.play then
     cls()
@@ -622,14 +751,7 @@ function _draw()
       camera()
       center("clear!",16,3)
       if edit then
-        rect(42,50,84,76,12)
-        rectfill(43,51,83,75,0)
-        center("password",52,12)
-        cursor(44,58)
-        color(7)
-        for v in all(encode_level(level)) do
-          print(encode_password(v))
-        end
+        print_password(encode_password(encode_level(level)),true)
         print(buttons.o.." save as custom level "..lvl,20,108,7)
         print(buttons.x.." edit",20,116,7)
         mode=modes.win_state2
@@ -674,7 +796,6 @@ function _draw()
     end
   elseif mode==modes.resize then
     local x,y=#level[1],#level
-    cls()
     draw_level(level)
     map()
     camera()
@@ -683,7 +804,6 @@ function _draw()
     center(x.." x "..y,108)
     --center("press "..buttons.o.." to edit",122,5)
   elseif mode==modes.edit_custom then
-    cls()
     draw_level(level)
     palt()
     spr(0, xpos, ypos)
@@ -694,6 +814,39 @@ function _draw()
     center("a single row cannot",116,5)
     center("be a solid color",122,5)
     restore_camera()
+  elseif mode==modes.edit_password then
+    cls()
+    if levels[lvl] then
+      center("password exists",8)
+      center("edit the password",16,5)
+    else
+      center("no password",8)
+      center("enter a password",16,5)
+    end
+    color(7)
+    spr(0,xpos,ypos)
+    cursor(numpad_x,numpad_y)
+    print("7 8 9\n")
+    print("4 5 6\n")
+    print("1 2 3\n")
+    print("    0")
+    cursor(dpad_x,dpad_y+1)
+    print("  ⬆️\n")
+    print("⬅️  ➡️\n")
+    print("  ⬇️\n")
+    print("  ok")
+    print_password(current_password)
+    rect(char_xpos,char_ypos,char_xpos+4,char_ypos+6,9)
+  elseif mode==modes.valid_password then
+    save_and_reset_camera()
+    draw_level(level)
+    restore_camera()
+    center("password valid!",8,3)
+    print(buttons.o.." save as custom level "..lvl,20,108,7)
+    print(buttons.x.." edit",20,116,7)
+  elseif mode==modes.invalid_password then
+    rectfill(0,8,127,13,0)
+    center("password invalid!",8,8)
   end
 end
 
@@ -730,11 +883,13 @@ function draw_level(level)
   map()
 end
 
-function decode_level(packed_bytes,check_cheksum)
+function decode_level(packed_bytes,check_checksum)
   local loaded_level,quad={},packed_bytes[3]
   local w,h=band(quad,0xf),band(rotr(quad,4),0xf)
+  loaded_level.end_pos={y=band(rotl(quad,4),0xf),x=band(rotl(quad,8),0xf)}
+  loaded_level.start_pos={y=band(rotl(quad,12),0xf),x=band(rotl(quad,16),0xf)}
   local check,checksum=band(quad,0xff),band(rotr(quad,8),0xff)
-  check+=band(rotr(quad,16),0xff)+band(rotr(quad,24),0xff)
+  check+=band(rotl(quad,8),0xff)+band(rotl(quad,16),0xff)
   quad=rotl(packed_bytes[1],24)
   for y=1,8 do
     if (y==5) quad=rotl(packed_bytes[2],24)
@@ -749,7 +904,7 @@ function decode_level(packed_bytes,check_cheksum)
       end
     end
   end
-  if (check_checksum) assert(band(check,0xff)==checksum)
+  if (check_checksum and band(check,0xff)!=checksum) return false
   return loaded_level
 end
 
@@ -796,15 +951,47 @@ end
 
 -- interpret level bytes as 32-bit unsigned integers
 -- thanks to felice and mrjorts from the bbs
-function encode_password(v)
-  local s,c="",(v>=0 or v==0x8000) and 0 or v%0x.000a<0x.0004 and 6 or -4
-  for i=1,10 do
-    c+=v%0x.000a/0x.0001
-    s=s..(c%10)
-    c=flr(c/10)
-    v=lshr(v,1)/5
+function encode_password(pwd)
+  local bytes={}
+  for v in all(pwd) do
+    local s,c={},(v>=0 or v==0x8000) and 0 or v%0x.000a<0x.0004 and 6 or -4
+    for i=1,10 do
+      c+=v%0x.000a/0x.0001
+      add(s,c%10)
+      c=flr(c/10)
+      v=lshr(v,1)/5
+    end
+    add(bytes,s)
   end
-  return s
+  return bytes
+end
+
+function decode_password(v)
+  local bytes={}
+  for byte in all(v) do
+    local s=(byte[10]*1000+byte[9]*100+byte[8]*10+byte[7])*0xf.424
+    s+=(byte[6]*100+byte[5]*10+byte[4])*0x.03e8
+    s+=(byte[3]*100+byte[2]*10+byte[1])*0x.0001
+    add(bytes,s)
+  end
+  return bytes
+end
+
+function print_password(pwd,centered)
+  rect(42,centered and 50 or 85,84,centered and 76 or 111,12)
+  rectfill(43,centered and 51 or 86,83,centered and 75 or 110,0)
+  center("password",centered and 52 or 87,12)
+  local y=centered and 58 or 93
+  color(7)
+  for v in all(pwd) do
+    local x=44
+    cursor(x,y)
+    for d in all(v) do
+      print(d,x,y)
+      x+=4
+    end
+    y+=6
+  end
 end
 
 push=add
@@ -851,6 +1038,7 @@ stock_levels = {
     0x75
   },
   { --4
+  --todo checkerboard
     0b0001010100010101.0001010100010001,
     0b0001001100010011.0001011100010001,
     0x85
