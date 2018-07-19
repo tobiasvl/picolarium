@@ -448,7 +448,7 @@ function _update()
       else
         if (edit) level.start_pos={x=xpos/8,y=ypos/8}
         draw=true
-        pal(14,10)
+        pal(14,11)
       end
     elseif button==32 then
       if (draw) turn_off_draw() else mode=edit and modes.edit_custom or modes.level_select
@@ -836,7 +836,7 @@ function _draw()
     print("  ⬇️\n")
     print("  ok")
     print_password(current_password)
-    rect(char_xpos,char_ypos,char_xpos+4,char_ypos+6,9)
+    rect(char_xpos,char_ypos,char_xpos+4,char_ypos+6,11)
   elseif mode==modes.valid_password then
     save_and_reset_camera()
     draw_level(level)
