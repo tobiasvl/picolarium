@@ -22,6 +22,8 @@ You can also input passwords to play other people's custom levels. There are som
 Links
 -----
 
+Play Picolarium here:
 * [GitHub Pages](https://tobiasvl.github.io/picolarium/)
 * [itch.io](https://tobiasvl.itch.io/picolarium/)
+* [Game Jolt](https://gamejolt.com/games/picolarium/337338)
 * [PICO-8 BBS](https://www.lexaloffle.com/bbs/?tid=31179)
