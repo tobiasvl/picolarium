@@ -351,7 +351,7 @@ function _update()
   elseif mode==modes.main_menu then
     if (btnp(⬆️)) menu_selection=menu_selection==1 and 3 or menu_selection-1
     if (btnp(⬇️)) menu_selection=menu_selection%3+1
-    if btnp(🅾️) then
+    if btnp(❎) then
       if menu_selection==1 then
         if (custom or not level_select) custom,edit,level_select,levels,lvl,lvl_xpos,lvl_ypos=false,false,load_state(),stock_levels,1,0,0
         mode=modes.level_select
@@ -366,10 +366,10 @@ function _update()
   elseif mode==modes.custom_submenu then
     if (btnp(⬆️)) menu_selection=menu_selection==1 and 2 or 1
     if (btnp(⬇️)) menu_selection=menu_selection%2+1
-    if btnp(🅾️) then
+    if btnp(❎) then
       if (menu_selection==2 or levels.lvls>0) mode=modes.level_select
       edit=menu_selection==2
-    elseif btnp(❎) then
+    elseif btnp(🅾️) then
       menu_selection=2
       mode=modes.main_menu
     end
@@ -402,7 +402,7 @@ function _update()
     end
     if (btnp(⬆️) and lvl>#level_select[1]) lvl-=#level_select[1] lvl_ypos-=8
     if (btnp(⬇️) and lvl<=level_select.lvls-#level_select[1]) lvl+=#level_select[1] lvl_ypos+=8
-    if btnp(🅾️) then
+    if btnp(❎) then
       if edit then
         if levels[lvl] then
           empty_level=decode_level(levels[lvl])
@@ -417,7 +417,7 @@ function _update()
         level=decode_level(levels[lvl])
         play_init(level)
       end
-    elseif btnp(❎) then
+    elseif btnp(🅾️) then
       if edit then
         mode,xpos,ypos,char,line,char_xpos,char_ypos,current_char=modes.edit_password,0,0,1,1,43,92,7
         numpad_x,numpad_y=39,32
@@ -442,7 +442,7 @@ function _update()
       menuitem(1,"level select",function() turn_off_draw() pal() mode=modes.level_select end)
     end
     button=btnp()
-    if button==16 then
+    if button==32 then
       if draw then
         verify_path()
       else
@@ -450,14 +450,14 @@ function _update()
         draw=true
         pal(14,11)
       end
-    elseif button==32 then
+    elseif button==16 then
       if (draw) turn_off_draw() else mode=edit and modes.edit_custom or modes.level_select
     elseif button==1 or button==2 or button==4 or button==8 then
       move(button)
     end
   elseif mode==modes.fail_state then
     counter+=1
-    if (btnp(🅾️)) mode=modes.play turn_off_draw()
+    if (btnp(❎)) mode=modes.play turn_off_draw()
   elseif mode==modes.resize then
     menuitem(1,"level select",function() turn_off_draw() pal() mode=modes.level_select end)
     menuitem(2)
@@ -472,13 +472,13 @@ function _update()
     end
     if (btnp(➡️) and x<8) foreach(empty_level,function(x) add(x,1) end)
     if (btnp(⬅️) and x>2) foreach(empty_level,function(x) x[#x]=nil end)
-    if (btnp(🅾️)) mode=modes.edit_custom play_init(empty_level)
-    if (btnp(❎)) mode=modes.level_select
+    if (btnp(❎)) mode=modes.edit_custom play_init(empty_level)
+    if (btnp(🅾️)) mode=modes.level_select
   elseif mode==modes.edit_custom then
     menuitem(2,"resize level",function() mode=modes.resize end)
     button=btnp()
     local x,y=xpos/8,ypos/8
-    if button==16 and mget(x,y)~=33 then
+    if button==32 and mget(x,y)~=33 then
       local t=empty_level[y][x]
       local flip={[0]=1,[1]=0}
       empty_level[y][x]=flip[t]
@@ -487,7 +487,7 @@ function _update()
         if (tile==t) invalid=false break
       end
       if (invalid) empty_level[y][x]=t
-    elseif button==32 then
+    elseif button==16 then
       mode=modes.play
       draw_level(level)
     elseif button==1 or button==2 or button==4 or button==8 then
@@ -577,7 +577,7 @@ function _update()
       elseif current_char>2 then
         ypos+=12 current_char-=3
       end
-    elseif btnp(🅾️) and (char<=10 and line <=3) then
+    elseif btnp(❎) and (char<=10 and line <=3) then
       if current_char=="left" then
         if (char>1) char-=1 char_xpos-=4
       elseif current_char=="right" then
@@ -602,22 +602,22 @@ function _update()
     level=decode_level(decode_password(current_password),true)
     if (level and #level>0) mode=modes.valid_password else mode=modes.invalid_password
   elseif mode==modes.valid_password then
-    if btnp(🅾️) then
+    if btnp(❎) then
       save_level(level,lvl)
       mode=modes.level_select
-    elseif btnp(❎) then
+    elseif btnp(🅾️) then
       mode=modes.edit_password
     end
   elseif mode==modes.invalid_password then
     if (btnp()!=0) mode=modes.edit_password
   end
   if mode==modes.fail_state or mode==modes.win_state1 or mode==modes.win_state2 then
-    if btnp(❎) then
+    if btnp(🅾️) then
       if (edit) mode=modes.edit_custom else mode=modes.level_select
     end
   end
   if mode==modes.win_state2 then
-    if btnp(🅾️) then
+    if btnp(❎) then
       if edit then
         save_level(level,lvl)
         mode=modes.level_select
@@ -657,7 +657,7 @@ function _draw()
     cursor(8,52)
     color(0)
     print("⬅️➡️⬆️⬇️: move")
-    print(buttons.o..": start and finish a\n"..(buttons.o=="z" and "" or " ").."   single stroke\n")
+    print(buttons.x..": start and finish a\n"..(buttons.x=="x" and "" or " ").."   single stroke\n")
     print("flip tiles so each horizontal\nline is one color")
     print("e.g. from ▒/▥ to █/▤")
   elseif mode==modes.custom_submenu then
@@ -691,8 +691,8 @@ function _draw()
     select=edit and "edit" or "select"
     center(select.." level",8)
     if edit then
-      print("press "..buttons.o.." to edit level",16,16)
-      print("press "..buttons.x.." to edit password",16,22)
+      print("press "..buttons.x.." to edit level",16,16)
+      print("press "..buttons.o.." to edit password",16,22)
     end
     print_lvl_no()
     if (level_select.lvls_beat==100) printg()
@@ -705,8 +705,8 @@ function _draw()
     if edit then
       save_and_reset_camera()
       center("solve level to save",8)
-      center("press "..buttons.x.." to edit",16,5)
-      center("press "..buttons.o.." to draw",108)
+      center("press "..buttons.o.." to edit",16,5)
+      center("press "..buttons.x.." to draw",108)
       center("use one stroke to eliminate",116,5)
       center("all black and white tiles",122,5)
       restore_camera()
@@ -752,16 +752,16 @@ function _draw()
       center("clear!",16,3)
       if edit then
         print_password(encode_password(encode_level(level)),true)
-        print(buttons.o.." save as custom level "..lvl,20,108,7)
-        print(buttons.x.." edit",20,116,7)
+        print(buttons.x.." save as custom level "..lvl,20,108,7)
+        print(buttons.o.." edit",20,116,7)
         mode=modes.win_state2
       else
         if not custom and level_select.lvls_beat<level_select.lvls and find_unsolved() then
-          print(buttons.o.." next unsolved level",20,108,7)
-          print(buttons.x.." back",20,116,7)
+          print(buttons.x.." next unsolved level",20,108,7)
+          print(buttons.o.." back",20,116,7)
           mode=modes.win_state2
         else
-          center(buttons.x.." back",108,7)
+          center(buttons.o.." back",108,7)
           mode=modes.win_state1
         end
       end
@@ -788,9 +788,9 @@ function _draw()
       end
       save_and_reset_camera()
       center("failed",16,8)
-      print(buttons.o.." try again",40,108,7)
+      print(buttons.x.." try again",40,108,7)
       if (edit) back="edit" else back="back"
-      print(buttons.x.." "..back,40,116,7)
+      print(buttons.o.." "..back,40,116,7)
       restore_camera()
       mode=modes.fail_state
     end
@@ -800,17 +800,16 @@ function _draw()
     map()
     camera()
     center("resize level",8)
-    center("press "..buttons.o.." to edit",16,5)
+    center("press "..buttons.x.." to edit",16,5)
     center(x.." x "..y,108)
-    --center("press "..buttons.o.." to edit",122,5)
   elseif mode==modes.edit_custom then
     draw_level(level)
     palt()
     spr(0, xpos, ypos)
     save_and_reset_camera()
     center("edit level",8)
-    center("press "..buttons.x.." to solve",16,5)
-    center("press "..buttons.o.." to flip tile",108)
+    center("press "..buttons.o.." to solve",16,5)
+    center("press "..buttons.x.." to flip tile",108)
     center("a single row cannot",116,5)
     center("be a solid color",122,5)
     restore_camera()
@@ -842,8 +841,8 @@ function _draw()
     draw_level(level)
     restore_camera()
     center("password valid!",8,3)
-    print(buttons.o.." save as custom level "..lvl,20,108,7)
-    print(buttons.x.." edit",20,116,7)
+    print(buttons.x.." save as custom level "..lvl,20,108,7)
+    print(buttons.o.." edit",20,116,7)
   elseif mode==modes.invalid_password then
     rectfill(0,8,127,13,0)
     center("password invalid!",8,8)
