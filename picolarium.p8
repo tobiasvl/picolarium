@@ -177,8 +177,11 @@ function _init()
   new_lvl=1
   new_lvl_xpos=0
   new_lvl_ypos=0
-  local emulated=stat(102)!=0 and stat(102)!="www.lexaloffle.com" and stat(102)!="www.playpico.com"
-  buttons={o=emulated and "z" or "🅾️",x=emulated and "x" or "❎"}
+  poke(0x5f2d,1)
+  emulated=stat(102)!=0
+  keyboard=stat(102)!=0 and stat(102)!="www.lexaloffle.com" and stat(102)!="www.playpico.com"
+  buttons={o=keyboard and "z" or "🅾️",x=keyboard and "x" or "❎"}
+  mouse={}
 end
 
 function play_init(level)
@@ -300,13 +303,13 @@ moves = {[1]={-8,0,2},
          [8]={0,8,4}}
 
 function move(dir)
-  new_xpos=xpos+moves[dir][1]
-  new_ypos=ypos+moves[dir][2]
+  local new_xpos=xpos+moves[dir][1]
+  local new_ypos=ypos+moves[dir][2]
   if draw and stack[#stack]==moves[dir][3] then
     pop(stack)
     xpos=new_xpos
     ypos=new_ypos
-    new=flr(mget(xpos/8,ypos/8)/16)
+    local new=flr(mget(xpos/8,ypos/8)/16)
     mset(xpos/8,ypos/8,new*16+1)
   elseif fget(mget(new_xpos/8,new_ypos/8),0) then
     if draw then
@@ -343,15 +346,64 @@ function path_tile(dir1, dir2)
     end
 end
 
+function update_mouse()
+  --mouse
+  local cam=peek4(0x5f28)
+  -- lsb
+  mouse.x=stat(32)+shl(cam,16)
+  mouse.y=stat(33)+band(cam,0xffff.0000)
+  mouse.celx=flr(mouse.x/8)
+  mouse.cely=flr(mouse.y/8)
+
+  if not draw then
+    local f=band(fget(mget(mouse.celx,mouse.cely)),3)
+    if f==1 or f==2 then
+      xpos=mouse.celx*8
+      ypos=mouse.cely*8
+    end
+  end
+
+  mouse.pressed=stat(34)==1
+  mouse.released=false
+  if mouse.down and not mouse.pressed then
+    mouse.down=false
+    mouse.released=true
+  else
+    mouse.down=mouse.pressed
+  end
+
+  local temp_mouse=mouse.pressed
+  mouse.pressed=mouse.pressed!=mouse.last and mouse.pressed or false
+  mouse.last=temp_mouse
+
+  if (mouse.drag) mouse.pressed_x=mouse.celx mouse.pressed_y=mouse.cely
+
+  if mouse.pressed then
+    mouse.pressed_x,mouse.pressed_y=mouse.celx,mouse.cely
+  end
+
+  mouse.drag=(mouse.down and (mouse.celx~=mouse.pressed_x or mouse.cely~=mouse.pressed_y))
+end
+
 function _update()
   if mode==modes.title then
-    if btnp(🅾️) or btnp(❎) then
-      mode=modes.main_menu
-    end
+    update_mouse()
+    if (btnp(🅾️) or btnp(❎) or mouse.released) mode=modes.main_menu
   elseif mode==modes.main_menu then
+    local x,y=mouse.x,mouse.y
+    if x!=old_x or y!=old_y then
+      old_x,old_y=x,y
+      if x>=48 and x<=80 and y>=60 and y<=66 then
+        menu_selection=1
+      elseif x>=48 and x<=80 and y>=66 and y<=73 then
+        menu_selection=2
+      elseif x>=48 and x<=80 and y>=73 and y<=80 then
+        menu_selection=3
+      end
+    end
     if (btnp(⬆️)) menu_selection=menu_selection==1 and 3 or menu_selection-1
     if (btnp(⬇️)) menu_selection=menu_selection%3+1
-    if btnp(❎) then
+    if btnp(❎) or mouse.released then
       if menu_selection==1 then
         if (custom or not level_select) custom,edit,level_select,levels,lvl,lvl_xpos,lvl_ypos=false,false,load_state(),stock_levels,1,0,0
         mode=modes.level_select
@@ -364,9 +416,18 @@ function _update()
       end
     end
   elseif mode==modes.custom_submenu then
+    local x,y=mouse.x,mouse.y
+    if x!=old_x or y!=old_y then
+      old_x,old_y=x,y
+      if x>=48 and x<=80 and y>=66 and y<=73 then
+        menu_selection=1
+      elseif x>=48 and x<=80 and y>=73 and y<=80 then
+        menu_selection=2
+      end
+    end
     if (btnp(⬆️)) menu_selection=menu_selection==1 and 2 or 1
     if (btnp(⬇️)) menu_selection=menu_selection%2+1
-    if btnp(❎) then
+    if btnp(❎) or mouse.released then
       if (menu_selection==2 or levels.lvls>0) mode=modes.level_select
       edit=menu_selection==2
     elseif btnp(🅾️) then
@@ -374,8 +435,20 @@ function _update()
       mode=modes.main_menu
     end
   elseif mode==modes.tutorial then
-    if (btnp(🅾️) or btnp(❎)) mode=modes.main_menu
+    update_mouse()
+    if (btnp(🅾️) or btnp(❎) or mouse.released) mode=modes.main_menu
   elseif mode==modes.level_select then
+    --mouse
+    local celx,cely=mouse.celx,mouse.cely
+    if fget(mget(celx,cely),0) and (celx!=old_x or cely!=old_y) then
+      old_x,old_y=celx,cely
+      lvl_xpos=celx*8
+      lvl_ypos=cely*8
+      local new_lvl=(cely*#level_select[1]+celx)+1
+      if new_lvl>0 and new_lvl<=100 then
+        lvl=new_lvl
+      end
+    end
     hint=false
     menuitem(1)
     menuitem(2)
@@ -402,14 +475,13 @@ function _update()
     end
     if (btnp(⬆️) and lvl>#level_select[1]) lvl-=#level_select[1] lvl_ypos-=8
     if (btnp(⬇️) and lvl<=level_select.lvls-#level_select[1]) lvl+=#level_select[1] lvl_ypos+=8
-    if btnp(❎) then
+    if btnp(❎) or mouse.released then
       if edit then
         if levels[lvl] then
-          empty_level=decode_level(levels[lvl])
+          level=decode_level(levels[lvl])
         else
-          empty_level={{0,1},{0,1},start_pos={x=0,y=0},end_pos={x=0,y=0}}
+          level={{0,1},{0,1},start_pos={x=0,y=0},end_pos={x=0,y=0}}
         end
-        level=empty_level
         play_init(level)
         mode=modes.resize
       elseif levels[lvl] then
@@ -455,47 +527,104 @@ function _update()
     elseif button==1 or button==2 or button==4 or button==8 then
       move(button)
     end
+    --mouse
+    if mouse.drag or mouse.pressed then
+      if draw then
+        if mouse.pressed and mouse.celx==xpos/8 and mouse.cely==ypos/8 then
+          verify_path()
+        elseif fget(mget(mouse.celx,mouse.cely),1) then
+          -- erase path
+          if mouse.drag then
+            local x,y=xpos-(mouse.celx*8),ypos-(mouse.cely*8)
+            local top=moves[stack[#stack]]
+            if x==top[1] and y==top[2] then
+              move(top[3])
+            end
+          else
+            repeat
+              move(moves[stack[#stack]][3])
+            until xpos==mouse.celx*8 and ypos==mouse.cely*8
+          end
+        elseif fget(mget(mouse.celx,mouse.cely),0) then
+          if mouse.celx==xpos/8 then
+            --draw line
+            local blocked=false
+            for i=mouse.cely,ypos/8,sgn((ypos/8)-mouse.cely) do
+              if fget(mget(mouse.celx,i),1) then
+                blocked=true
+              end
+            end
+            if not blocked then
+              repeat
+                move(mouse.cely-ypos/8<=0 and 4 or 8)
+              until mouse.cely==ypos/8
+            end
+          elseif mouse.cely==ypos/8 then
+            --draw line
+            local blocked=false
+            for i=mouse.celx,xpos/8,sgn((xpos/8)-mouse.celx) do
+              if fget(mget(i,mouse.cely),1) then
+                blocked=true
+              end
+            end
+            if not blocked then
+              repeat
+                move(mouse.celx-xpos/8<=0 and 1 or 2)
+              until mouse.celx==xpos/8
+            end
+          end
+        end
+      elseif mouse.pressed and fget(mget(mouse.celx,mouse.cely),0) then
+        xpos=mouse.celx*8
+        ypos=mouse.cely*8
+        draw=true
+        pal(14,11)
+      end
+    elseif stat(34)==2 then
+      turn_off_draw()
+    end
   elseif mode==modes.fail_state then
     counter+=1
     if (btnp(❎)) mode=modes.play turn_off_draw()
   elseif mode==modes.resize then
     menuitem(1,"level select",function() turn_off_draw() pal() mode=modes.level_select end)
     menuitem(2)
-    local x,y=#empty_level[1],#empty_level
-    if (btnp(⬆️) and y>2) empty_level[y]=nil
-    if (btnp(⬇️) and y<8) then
+    local x,y=#level[1],#level
+    if (x<8 and (btnp(➡️) or (mouse.released and mouse.celx==x+1 and mouse.cely!=0 and mouse.cely!=y+1))) foreach(level,function(x) add(x,1) end) x+=1
+    if (x>2 and (btnp(⬅️) or (mouse.released and mouse.celx==0 and mouse.cely!=0 and mouse.cely!=y+1))) foreach(level,function(x) x[#x]=nil end) x-=1
+    if (y>2 and (btnp(⬆️) or (mouse.released and mouse.cely==0 and mouse.celx!=0 and mouse.celx!=x+1))) level[y]=nil y-=1
+    if (y<8 and (btnp(⬇️) or (mouse.released and mouse.cely==y+1 and mouse.celx!=0 and mouse.celx!=x+1))) then
       local new_row={0}
-      for i=2,x do
+      for _=2,x do
         add(new_row,1)
       end
-      add(empty_level,new_row)
+      add(level,new_row)
+      y+=1
     end
-    if (btnp(➡️) and x<8) foreach(empty_level,function(x) add(x,1) end)
-    if (btnp(⬅️) and x>2) foreach(empty_level,function(x) x[#x]=nil end)
-    if (btnp(❎)) mode=modes.edit_custom play_init(empty_level)
+    if (btnp(❎)) mode=modes.edit_custom play_init(level)
     if (btnp(🅾️)) mode=modes.level_select
   elseif mode==modes.edit_custom then
+    update_mouse()
     menuitem(2,"resize level",function() mode=modes.resize end)
     button=btnp()
     local x,y=xpos/8,ypos/8
-    if button==32 and mget(x,y)~=33 then
-      local t=empty_level[y][x]
+    if (button==32 or mouse.drag or mouse.pressed) and mget(x,y)~=33 then
+      local t=level[y][x]
       local flip={[0]=1,[1]=0}
-      empty_level[y][x]=flip[t]
+      level[y][x]=flip[t]
       local invalid=true
-      for tile in all(empty_level[y]) do
+      for tile in all(level[y]) do
         if (tile==t) invalid=false break
       end
-      if (invalid) empty_level[y][x]=t
+      if (invalid) level[y][x]=t
     elseif button==16 then
       mode=modes.play
       draw_level(level)
     elseif button==1 or button==2 or button==4 or button==8 then
       move(button)
     end
-  elseif mode==modes.edit_password then
+  elseif mode==modes.edit_password or mode==modes.invalid_password then
     menuitem(1,"level select",function() mode=modes.level_select end)
-    poke(0x5f2d,1)
     if stat(30) then
       local key=stat(31)
       if key=="\b" then
@@ -577,7 +706,7 @@ function _update()
       elseif current_char>2 then
         ypos+=12 current_char-=3
       end
-    elseif btnp(❎) and (char<=10 and line <=3) then
+    elseif ((mouse.released and mouse.x-xpos<8 and mouse.y-ypos<8) or btnp(❎)) and (char<=10 and line <=3) then
       if current_char=="left" then
         if (char>1) char-=1 char_xpos-=4
       elseif current_char=="right" then
@@ -597,6 +726,75 @@ function _update()
           char_xpos+=4
         end
       end
+    elseif mouse.released and mouse.x>=43 and mouse.y>=93 and mouse.x<=82 and mouse.y<=109 then
+      char_xpos=(flr((mouse.x)/4)*4)-1
+      char_ypos=(flr((mouse.y-2)/6)*6)+2
+      char=flr((char_xpos-43)/4)+1
+      line=flr((char_ypos-92)/6)+1
+    end
+    if mouse.y<=numpad_y-1+36 then
+      if mouse.x>=numpad_x-2 and mouse.y>=numpad_y-1 then
+        current_char=7
+        xpos,ypos=numpad_x-2,numpad_y-1
+      end
+      if mouse.x>=numpad_x-2+8 and mouse.y>=numpad_y-1 then
+        current_char=8
+        xpos,ypos=numpad_x-2+8,numpad_y-1
+      end
+      if mouse.x>=numpad_x-2+16 and mouse.y>=numpad_y-1 then
+        current_char=9
+        xpos,ypos=numpad_x-2+16,numpad_y-1
+      end
+      if mouse.x>=numpad_x-2 and mouse.y>=numpad_y-1+12 then
+        current_char=4
+        xpos,ypos=numpad_x-2,numpad_y-1+12
+      end
+      if mouse.x>=numpad_x-2+8 and mouse.y>=numpad_y-1+12 then
+        current_char=5
+        xpos,ypos=numpad_x-2+8,numpad_y-1+12
+      end
+      if mouse.x>=numpad_x-2+16 and mouse.y>=numpad_y-1+12 then
+        current_char=6
+        xpos,ypos=numpad_x-2+16,numpad_y-1+12
+      end
+      if mouse.x>=numpad_x-2 and mouse.y>=numpad_y-1+24 then
+        current_char=1
+        xpos,ypos=numpad_x-2,numpad_y-1+24
+      end
+      if mouse.x>=numpad_x-2+8 and mouse.y>=numpad_y-1+24 then
+        current_char=2
+        xpos,ypos=numpad_x-2+8,numpad_y-1+24
+      end
+      if mouse.x>=numpad_x-2+16 and mouse.y>=numpad_y-1+24 then
+        current_char=3
+        xpos,ypos=numpad_x-2+16,numpad_y-1+24
+      end
+    end
+    if mouse.x>=numpad_x-2+16 and mouse.y>=numpad_y-1+36 and mouse.y<=numpad_y-1+48 then
+      current_char=0
+      xpos,ypos=numpad_x-2+16,numpad_y-1+36
+    end
+    if mouse.y<=dpad_y+48 then
+      if mouse.x>=dpad_x and mouse.y>=dpad_y then
+        current_char="up"
+        xpos,ypos=dpad_x+8,dpad_y
+      end
+      if mouse.x>=dpad_x and mouse.y>=dpad_y+12 then
+        current_char="left"
+        xpos,ypos=dpad_x,dpad_y+12
+      end
+      if mouse.x>=dpad_x+12 and mouse.y>=dpad_y+12 then
+        current_char="right"
+        xpos,ypos=dpad_x+16,dpad_y+12
+      end
+      if mouse.x>=dpad_x and mouse.y>=dpad_y+24 then
+        current_char="down"
+        xpos,ypos=dpad_x+8,dpad_y+24
+      end
+      if mouse.x>=dpad_x and mouse.y>=dpad_y+36 then
+        current_char="ok"
+        xpos,ypos=dpad_x+8,dpad_y+36
+      end
     end
   elseif mode==modes.validate_password then
     level=decode_level(decode_password(current_password),true)
@@ -608,10 +806,12 @@ function _update()
     elseif btnp(🅾️) then
       mode=modes.edit_password
     end
-  elseif mode==modes.invalid_password then
-    if (btnp()!=0) mode=modes.edit_password
+  end
+  if mode==modes.invalid_password then
+    if (btnp()!=0 or mouse.pressed) mode=modes.edit_password
   end
   if mode==modes.fail_state or mode==modes.win_state1 or mode==modes.win_state2 then
+    update_mouse()
     if btnp(🅾️) then
       if (edit) mode=modes.edit_custom else mode=modes.level_select
     end
@@ -635,13 +835,16 @@ function _draw()
   if mode==modes.title then
     title_draw()
   elseif mode==modes.main_menu then
+    camera()
     for x=0,15 do
       for y=0,12 do
         if (y~=3 and y~=4) mset(x,y,32)
       end
     end
     map()
+    update_mouse()
     spr(96,0,24,16,2)
+    rectfill(0,104,128,128,0)
     spr(128,9,104,14,3)
     local colors={{7,0},{7,0},{7,0}}
     colors[menu_selection]={0,7}
@@ -652,15 +855,17 @@ function _draw()
     print("custom",49,68,colors[2][2])
     rectfill(48,74,80,80,colors[3][1])
     print("tutorial",49,75,colors[3][2])
+    draw_mouse()
   elseif mode==modes.tutorial then
     rectfill(0,60,127,90,7)
     cursor(8,52)
     color(0)
     print("⬅️➡️⬆️⬇️: move")
-    print(buttons.x..": start and finish a\n"..(buttons.x=="x" and "" or " ").."   single stroke\n")
+    print(buttons.x..": start and finish a\n"..(keyboard and "" or " ").."   single stroke\n")
     print("flip tiles so each horizontal\nline is one color")
     print("e.g. from ▒/▥ to █/▤")
   elseif mode==modes.custom_submenu then
+    camera()
     menuitem(1)
     local colors={levels.lvls==0 and {7,5} or {7,0},{7,0}}
     if (menu_selection==1 and levels.lvls==0) colors[1]={5,7} else colors[menu_selection]={0,7}
@@ -670,7 +875,9 @@ function _draw()
       end
     end
     map()
+    update_mouse()
     spr(96,0,24,16,2)
+    rectfill(0,104,128,128,0)
     spr(128,9,104,14,3)
     rectfill(0,48,128,100,7)
     print("custom",49,61,12)
@@ -678,6 +885,7 @@ function _draw()
     print("play",49,68,colors[1][2])
     rectfill(48,74,80,80,colors[2][1])
     print("edit",49,75,colors[2][2])
+    draw_mouse()
   elseif mode==modes.level_select then
     palt()
     for x=0,15 do
@@ -687,18 +895,21 @@ function _draw()
     end
     draw_level(level_select)
     spr(0, lvl_xpos, lvl_ypos)
-    camera()
+    save_and_reset_camera()
     select=edit and "edit" or "select"
     center(select.." level",8)
     if edit then
       print("press "..buttons.x.." to edit level",16,16)
       print("press "..buttons.o.." to edit password",16,22)
     end
+    restore_camera()
+    update_mouse()
     print_lvl_no()
     if (level_select.lvls_beat==100) printg()
     if edit then
       print_password(encode_password(levels[lvl]))
     end
+    draw_mouse()
   elseif mode==modes.play then
     cls()
     map()
@@ -718,7 +929,9 @@ function _draw()
       spr(58,level.start_pos.x*8,level.start_pos.y*8)
       spr(58,level.end_pos.x*8,level.end_pos.y*8)
     end
+    update_mouse()
     spr(0, xpos, ypos)
+    draw_mouse()
   elseif mode==modes.flip then
     local s=0
     cls()
@@ -798,10 +1011,17 @@ function _draw()
     local x,y=#level[1],#level
     draw_level(level)
     map()
-    camera()
+    print("⬆️",((x+1)/2)*8,1,y>2 and 8 or 5)
+    print("⬇️",((x+1)/2)*8,(y+1)*8+2,y<8 and 3 or 5)
+    print("➡️",(x+1)*8+1,((y+1)/2)*8,x<8 and 3 or 5)
+    print("⬅️",0,((y+1)/2)*8,x>2 and 8 or 5)
+    save_and_reset_camera()
     center("resize level",8)
     center("press "..buttons.x.." to edit",16,5)
     center(x.." x "..y,108)
+    restore_camera()
+    update_mouse()
+    draw_mouse()
   elseif mode==modes.edit_custom then
     draw_level(level)
     palt()
@@ -813,14 +1033,26 @@ function _draw()
     center("a single row cannot",116,5)
     center("be a solid color",122,5)
     restore_camera()
-  elseif mode==modes.edit_password then
+    draw_mouse()
+  elseif mode==modes.edit_password or mode==modes.valid_password or mode==modes.invalid_password then
+    for x=0,15 do
+      for y=0,15 do
+        mset(x,y,0)
+      end
+    end
     cls()
+    camera()
+    update_mouse()
     if levels[lvl] then
       center("password exists",8)
       center("edit the password",16,5)
     else
       center("no password",8)
       center("enter a password",16,5)
+    end
+    if mode==modes.invalid_password then
+      rectfill(0,8,127,13,0)
+      center("password invalid!",8,8)
     end
     color(7)
     spr(0,xpos,ypos)
@@ -836,17 +1068,25 @@ function _draw()
     print("  ok")
     print_password(current_password)
     rect(char_xpos,char_ypos,char_xpos+4,char_ypos+6,11)
-  elseif mode==modes.valid_password then
+    draw_mouse()
+  end
+  if mode==modes.valid_password then
     save_and_reset_camera()
     draw_level(level)
     restore_camera()
     center("password valid!",8,3)
     print(buttons.x.." save as custom level "..lvl,20,108,7)
     print(buttons.o.." edit",20,116,7)
-  elseif mode==modes.invalid_password then
-    rectfill(0,8,127,13,0)
-    center("password invalid!",8,8)
   end
+end
+
+function draw_mouse()
+  --mouse
+  if (emulated) return
+  local trans=peek(0x5f00)
+  palt()
+  spr(59,mouse.x,mouse.y-7)
+  poke(0x5f00,trans)
 end
 
 function draw_border(len,y)
@@ -857,8 +1097,8 @@ end
 
 function draw_level(level)
   cls()
-  for x=0,32 do
-    for y=0,32 do
+  for x=0,15 do
+    for y=0,15 do
       mset(x,y,0)
     end
   end
@@ -876,8 +1116,8 @@ function draw_level(level)
     if (mode~=modes.level_select) mset(width+1,y,33)
   end
   if (mode~=modes.level_select) draw_border(width+1, height+1) width+=2 height+=2
-  x=-(128-(width*8))/2
-  y=-(128-(height*8))/2
+  local x=-(128-(width*8))/2
+  local y=-(128-(height*8))/2
   camera(x,y)
   map()
 end
@@ -1564,14 +1804,14 @@ eeeeeeee777777779777777999999999977777799777777999999999999999999777777999999999
 77777777666666669666666966666666966666666666666996666666666666699666666996666669966666666666666900000000000000000000000000000000
 77777777666666669666666966666666966666666666666996666666666666699666666996666669966666666666666900000000000000000000000000000000
 77777777666666669666666999999999966666699666666999999999999999999666666999999999999999999999999900000000000000000000000000000000
-77777777077777700077770000077000000750000005500000555500055555505555555555555555000000000000000000000000000000000000000000000000
-76666657076665700076570000077000000750000005500000560500050000505000000550000005000000000000000000000000000000000000000000000000
-76777757076775700076570000077000000750000005500000560500050550505055550550555505000330000000000000000000000000000000000000000000
-767777570767757000765700000770000007500000055000005605000505505050555505505555050033b3000000000000000000000000000000000000000000
-76777757076775700076570000077000000750000005500000560500050550505055550550555505003333000000000000000000000000000000000000000000
-76777757076775700076570000077000000750000005500000560500050550505055550550555505000330000000000000000000000000000000000000000000
-76555557076555700075570000077000000750000005500000500500050000505000000550000005000000000000000000000000000000000000000000000000
-77777777077777700077770000077000000750000005500000555500055555505555555555555555000000000000000000000000000000000000000000000000
+777777770777777000777700000770000007500000055000005555000555555055555555555555550000000000000e0000000000000000000000000000000000
+76666657076665700076570000077000000750000005500000560500050000505000000550000005000000000000eee000000000000000000000000000000000
+7677775707677570007657000007700000075000000550000056050005055050505555055055550500033000000eeeee00000000000000000000000000000000
+767777570767757000765700000770000007500000055000005605000505505050555505505555050033b30000eeeee000000000000000000000000000000000
+76777757076775700076570000077000000750000005500000560500050550505055550550555505003333000eeeee0000000000000000000000000000000000
+7677775707677570007657000007700000075000000550000056050005055050505555055055550500033000e7eee00000000000000000000000000000000000
+7655555707655570007557000007700000075000000550000050050005000050500000055000000500000000e77e000000000000000000000000000000000000
+7777777707777770007777000007700000075000000550000055550005555550555555555555555500000000eee0000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 07777777777000007707777777777777707777777777777707700000000000007777777777000007777777777000007707700000000007707777777777700000
 07777777777700007707777777777777707777777777777707700000000000007777777777700007777777777700007707700000000007707777777777770000
@@ -1830,4 +2070,3 @@ __music__
 41 00000000
 42 00000000
 43 00414243
-
