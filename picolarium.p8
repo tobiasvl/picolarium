@@ -829,8 +829,24 @@ function _update()
       end
     end
   elseif mode==modes.validate_password then
-    level=decode_level(decode_password(current_password),true)
-    if (level and #level>0) mode=modes.valid_password sfx(55) else mode=modes.invalid_password sfx(62)
+    local cheat={1,1,4,8,4,3,9,7,2}
+    for i=1,#cheat do
+      if current_password[1][i]!=cheat[i] then
+        level=decode_level(decode_password(current_password),true)
+        if (level and #level>0) mode=modes.valid_password sfx(55) else mode=modes.invalid_password sfx(62)
+        break
+      end
+    end
+    mode,custom,edit,levels,lvl,lvl_xpos,lvl_ypos=modes.level_select,false,false,stock_levels,1,0,0
+    level_select={}
+    for x=1,10 do
+      add(level_select,{})
+      for _=1,10 do
+        add(level_select[x],1)
+      end
+    end
+    level_select.lvls=100
+    level_select.lvls_beat=100
   elseif mode==modes.valid_password then
     if btnp(❎) then
       save_level(level,lvl)
