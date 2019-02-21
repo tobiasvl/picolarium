@@ -952,13 +952,13 @@ function _draw()
       print("press "..buttons.x.." to edit level",16,16)
       print("press "..buttons.o.." to edit password",16,22)
     end
-    restore_camera()
-    update_mouse()
-    print_lvl_no()
     if (level_select.lvls_beat==100) printg()
     if edit then
       print_password(encode_password(levels[lvl]))
     end
+    restore_camera()
+    update_mouse()
+    print_lvl_no()
     draw_mouse()
   elseif mode==modes.play then
     cls()
