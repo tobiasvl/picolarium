@@ -661,6 +661,16 @@ function _update()
         end
       else
         local c=tonum(key)
+        -- check if 8 was pressed, which is an undocumented mapping for ❎.
+        -- if it was, we later check this to suppress ❎. see:
+        -- * https://github.com/tobiasvl/picolarium/issues/19
+        -- * https://www.lexaloffle.com/bbs/?tid=33346
+        -- * https://www.lexaloffle.com/bbs/?tid=31525
+        if c==8 then
+          eight=true
+        else
+          eight=false
+        end
         if c then
           sfx(42)
           current_password[line][char]=c
@@ -736,7 +746,7 @@ function _update()
       elseif current_char>2 then
         ypos+=12 current_char-=3
       end
-    elseif ((mouse.released and mouse.x-xpos<8 and mouse.y-ypos<8) or btnp(❎)) and (char<=10 and line <=3) then
+    elseif ((mouse.released and mouse.x-xpos<8 and mouse.y-ypos<8) or (btnp(❎) and not eight)) and (char<=10 and line <=3) then
       sfx(42)
       if current_char=="left" then
         if (char>1) char-=1 char_xpos-=4
